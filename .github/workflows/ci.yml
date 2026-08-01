@@ -40,7 +40,9 @@ jobs:
         with:
           version: latest
       - name: Start disposable local database
-        run: supabase start --ignore-health-check
+        run: >-
+          supabase start --ignore-health-check
+          -x gotrue,realtime,storage-api,imgproxy,kong,mailpit,postgrest,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
       - name: Reset and apply every migration
         run: supabase db reset
       - name: Database lint
