@@ -28,8 +28,9 @@ PR: `https://github.com/iraac-dev/iraac-platform/pull/8`
 Local evidence on the verification checkpoint: lint and typecheck passed; 70
 application/contract tests passed; the production build passed; full npm audit
 reported zero vulnerabilities; a fresh Supabase reset and schema lint passed;
-42 pgTAP tests passed; shell syntax and diff checks passed. GitHub CI on PR #8
-must still complete before the candidate is described as CI-verified.
+42 pgTAP tests passed; shell syntax and diff checks passed. GitHub Actions run
+`30712705328` passed all quality, secrets and database jobs on the corrected
+code and CI configuration. The later evidence-stamp commit changes docs only.
 
 Confirmed original defects included: collection against a draft survey;
 completion-mode spoofing; blanket current/future standard-role CRUD; STOP that

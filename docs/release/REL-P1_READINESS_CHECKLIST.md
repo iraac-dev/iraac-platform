@@ -6,7 +6,7 @@ administrator permission.
 
 | Gate | Evidence required | Status |
 |---|---|---|
-| Integrated candidate | PRs #4–#7 reconciled into draft PR #8; verification SHA recorded | PARTIAL — local gates pass; GitHub CI pending |
+| Integrated candidate | PRs #4–#7 reconciled into draft PR #8; verification SHA and CI run recorded | PASS — GitHub run 30712705328 green |
 | Active survey interlock | Draft/superseded/hash-mismatch submissions rejected | PASS (unit) |
 | Canonical renderer | A01/A02 stop, required fields, repeat groups, browser accessibility | OPEN |
 | Consent integrity | One transaction writes identity, contact, events, receipt items and audit | OPEN |
@@ -17,7 +17,7 @@ administrator permission.
 | Logging | Event/field allowlist prevents arbitrary payload logging | PASS (unit) |
 | Full restore | Separate physical target; schema/data fingerprints and pgTAP | OPEN — corrected drill not yet executed |
 | Synthetic load | HTTP pairs plus exact persisted session/token/answer reconciliation | OPEN — corrected 10,000 run not yet executed |
-| CI | App, audit, shell and database jobs defined; browser/accessibility still required | PARTIAL — workflow needs PR execution |
+| CI | App, audit, shell and database jobs on the PR; browser/accessibility still required | PARTIAL — run 30712705328 green; browser gate OPEN |
 | Privacy/cultural governance | PIA, Indigenous data governance, retention/small-cell rules recorded | EXTERNAL/OPEN |
 | Operational ownership | Named account, incident and recovery roles stored privately | OPEN |
 | Production activation | All preceding P1 gates pass against the exact release commit | OPEN |

@@ -19,8 +19,9 @@ handoff commit changes documentation only.
 - pgTAP: 42 PASS
 - shell syntax and diff checks: PASS
 
-GitHub CI, the full restore, browser/accessibility suite and 10,000-response
-rehearsal are not included in these local claims.
+GitHub Actions run `30712705328` passed quality, secrets and database jobs on
+the corrected code/CI head. The full restore, browser/accessibility suite and
+10,000-response rehearsal remain outside these claims.
 
 ## Confirmed defects and disposition
 
