@@ -35,8 +35,27 @@ export async function createServerSupabase() {
 
 export type AdminRole = "staff" | "auditor";
 
+type AdminUser = {
+  email?: string | null;
+  app_metadata?: Record<string, unknown>;
+};
+
 /** Role claim read from the JWT app_metadata (set at user creation). */
 export function roleFromUser(user: { app_metadata?: Record<string, unknown> } | null): AdminRole | null {
   const role = user?.app_metadata?.iraac_role;
   return role === "staff" || role === "auditor" ? role : null;
+}
+
+/**
+ * Runtime membership gate. Role alone is insufficient: access must be active,
+ * and every login must name its accountable human custodian. This avoids
+ * trying to infer whether an address is personal from its spelling.
+ */
+export function adminAccessFromUser(user: AdminUser | null): AdminRole | null {
+  const role = roleFromUser(user);
+  if (!role || user?.app_metadata?.iraac_active !== true) return null;
+
+  const custodian = user.app_metadata?.iraac_named_custodian;
+  if (typeof custodian !== "string" || custodian.trim().length < 3) return null;
+  return role;
 }

@@ -5,9 +5,13 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   quality:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -19,6 +23,28 @@ jobs:
       - run: npm run typecheck
       - run: npm run test
       - run: npm run build
+      - name: Dependency audit
+        run: npm audit --audit-level=high
+      - name: Shell syntax
+        run: bash -n scripts/*.sh
+      - name: Diff whitespace
+        run: git diff --check HEAD^ HEAD
+  database:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Start disposable local database
+        run: supabase start --ignore-health-check
+      - name: Reset and apply every migration
+        run: supabase db reset
+      - name: Database lint
+        run: supabase db lint --level error
+      - name: pgTAP authorization and consent suites
+        run: supabase test db
   secrets:
     runs-on: ubuntu-latest
     steps:

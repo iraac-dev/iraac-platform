@@ -44,6 +44,9 @@ const A02_HELP_VALUE = "I need immediate help";
 
 /** Terminal stops from A02: questionnaire must stop and show the human path. */
 export function terminalStop(answers: AnswerMap): { stop: boolean; reason?: string } {
+  if (answers.A01 === "No" || answers.A01 === "Prefer not to say") {
+    return { stop: true, reason: "A01: adult gate not confirmed" };
+  }
   const a02 = answers.A02;
   if (typeof a02 !== "string") return { stop: false };
   if (a02 === A02_PERSON_VALUE) {

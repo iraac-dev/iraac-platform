@@ -37,6 +37,28 @@ const V1_VERSION_ID = "10000000-0000-0000-0000-000000000002";
 /** V1 survey definition UUID (survey_questions.survey_id references it). */
 const V1_DEFINITION_ID = "10000000-0000-0000-0000-000000000001";
 
+/**
+ * Collection interlock. A deployed route must not turn a draft or superseded
+ * contract into a live survey merely because it has the service-role key.
+ */
+export async function assertSurveyReleaseActive(client: SupabaseClient): Promise<void> {
+  const { data: release, error } = await client
+    .from("survey_versions")
+    .select("status, content_hash")
+    .eq("id", V1_VERSION_ID)
+    .maybeSingle();
+
+  if (error || !release) {
+    throw new Error("Survey release is unavailable");
+  }
+  if (release.status !== "active") {
+    throw new Error("Survey release is not active");
+  }
+  if (release.content_hash !== SURVEY_V1_HASH) {
+    throw new Error("Survey release hash mismatch");
+  }
+}
+
 /** The question ids that are NOT part of the anonymous V1 journey (H = follow-up contact, I = permissions). */
 const NON_ANONYMOUS_IDS = new Set<string>([
   "H01", "H02", "H03", "H04", "H05", "H06",
@@ -59,6 +81,9 @@ export function validateAnonymousSubmission(answers: AnswerMap): Record<string, 
   }
   if (answers.A01 !== "Yes") {
     throw new Error("Submission blocked: A01 must be Yes (adult gate)");
+  }
+  if (answers.A02 !== "Yes" && answers.A02 !== "I would like to skip personal questions") {
+    throw new Error("Submission blocked: A02 safety choice is required");
   }
 
   const visible = new Set(visibleQuestionIds(answers));
@@ -101,6 +126,7 @@ export async function submitAnonymousSurvey(
   input: SubmissionInput,
 ): Promise<SubmissionResult> {
   const validated = validateAnonymousSubmission(input.answers);
+  await assertSurveyReleaseActive(client);
 
   // Duplicate check first: same token already completed?
   const { data: existing } = await client

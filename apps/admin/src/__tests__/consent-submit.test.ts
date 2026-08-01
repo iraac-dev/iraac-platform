@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ALL_PERMISSION_IDS, validateConsentInput, withdrawConsent } from "../lib/consent-submit";
+import { ALL_PERMISSION_IDS, PERMISSION_CHANNEL, validateConsentInput, withdrawConsent } from "../lib/consent-submit";
 
 describe("validateConsentInput", () => {
   it("accepts a valid body with ticked and unticked permissions", () => {
@@ -14,10 +14,11 @@ describe("validateConsentInput", () => {
     expect(out.contact?.email).toBe("test@example.com");
   });
 
-  it("accepts an all-unticked permissions body (nothing granted by default)", () => {
+  it("accepts an all-unticked permissions body when a usable endpoint was supplied", () => {
     const out = validateConsentInput({
       sessionId: "session-12345678",
       permissions: { I01: false, I02: false, I03: false, I04: false, I05: false },
+      contact: { name: "Test Person", email: "test@example.com" },
     });
     expect(Object.values(out.permissions).every((v) => v === false)).toBe(true);
   });
@@ -42,14 +43,40 @@ describe("validateConsentInput", () => {
     expect(() => validateConsentInput({ sessionId: "session-12345678", permissions: ["I01"] })).toThrow(/permissions/);
   });
 
-  it("truncates contact fields to contract-safe lengths", () => {
+  it("truncates display names but rejects malformed oversized endpoints", () => {
     const out = validateConsentInput({
       sessionId: "session-12345678",
       permissions: {},
-      contact: { name: "x".repeat(500), email: "a".repeat(500) },
+      contact: { name: "x".repeat(500), email: "test@example.com" },
     });
     expect(out.contact?.name?.length).toBeLessThanOrEqual(120);
-    expect(out.contact?.email?.length).toBeLessThanOrEqual(200);
+    expect(() => validateConsentInput({
+      sessionId: "session-12345678",
+      permissions: {},
+      contact: { email: `${"a".repeat(500)}@example.com` },
+    })).toThrow(/valid email/);
+  });
+
+  it("requires a matching endpoint for every granted channel", () => {
+    expect(() => validateConsentInput({
+      sessionId: "session-12345678",
+      permissions: { I01: true },
+      contact: { mobile: "0400000000" },
+    })).toThrow(/email address/);
+    expect(() => validateConsentInput({
+      sessionId: "session-12345678",
+      permissions: { I04: true },
+      contact: { email: "test@example.com" },
+    })).toThrow(/mobile number/);
+  });
+
+  it("does not treat I05 as recording consent", () => {
+    expect(PERMISSION_CHANNEL.I05).toBeUndefined();
+    expect(() => validateConsentInput({
+      sessionId: "session-12345678",
+      permissions: { I05: true },
+      contact: { name: "Test Person" },
+    })).toThrow(/skip this step/);
   });
 });
 

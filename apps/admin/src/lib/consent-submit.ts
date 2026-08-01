@@ -20,10 +20,9 @@ const PERMISSION_CHANNEL: Record<string, string> = {
   I02: "sms",
   I03: "human_call",
   I04: "ai_call",
-  I05: "recording",
 };
 
-const ALL_PERMISSION_IDS = Object.keys(PERMISSION_CHANNEL);
+const ALL_PERMISSION_IDS = ["I01", "I02", "I03", "I04", "I05"];
 
 /** Wording version pinned for each channel (seeded by CONS-001 migration). */
 const WORDING_VERSION_BY_CHANNEL: Record<string, number> = {
@@ -87,10 +86,30 @@ export function validateConsentInput(input: unknown): ConsentInput {
   if (raw.contact !== undefined && raw.contact !== null) {
     const c = raw.contact as Record<string, unknown>;
     contact = {
-      name: typeof c.name === "string" ? c.name.slice(0, 120) : undefined,
-      email: typeof c.email === "string" ? c.email.slice(0, 200) : undefined,
-      mobile: typeof c.mobile === "string" ? c.mobile.slice(0, 30) : undefined,
+      name: typeof c.name === "string" ? c.name.trim().slice(0, 120) : undefined,
+      email: typeof c.email === "string" ? c.email.trim() : undefined,
+      mobile: typeof c.mobile === "string" ? c.mobile.trim() : undefined,
     };
+  }
+  const emailGranted = perms.I01 === true;
+  const mobileGranted = perms.I02 === true || perms.I03 === true || perms.I04 === true;
+  if (emailGranted && !contact?.email) {
+    throw new Error("An email address is required for email permission");
+  }
+  if (mobileGranted && !contact?.mobile) {
+    throw new Error("A mobile number is required for SMS or call permission");
+  }
+  if (contact?.email && (contact.email.length > 200 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact.email))) {
+    throw new Error("A valid email address is required");
+  }
+  if (contact?.mobile && (contact.mobile.length > 30 || !/^\+?[0-9 ()-]{8,20}$/.test(contact.mobile))) {
+    throw new Error("A valid phone number is required");
+  }
+  const mappedPermissionGranted = Object.entries(perms).some(
+    ([permissionId, granted]) => granted && Boolean(PERMISSION_CHANNEL[permissionId]),
+  );
+  if (!contact?.email && !contact?.mobile && !mappedPermissionGranted) {
+    throw new Error("Choose a contact permission or skip this step");
   }
   return { sessionId, permissions: perms as Record<string, boolean>, contact };
 }
@@ -133,7 +152,9 @@ export async function submitConsent(
   // 2. Create or update the person from contact details (optional).
   let personId: string | null = null;
   const contact = input.contact;
-  const wantsContact = Object.values(input.permissions).some(Boolean);
+  const wantsContact = Object.entries(input.permissions).some(
+    ([permissionId, granted]) => granted && Boolean(PERMISSION_CHANNEL[permissionId]),
+  );
   if (contact && (contact.email || contact.mobile || wantsContact)) {
     const { data: person, error: pErr } = await client
       .from("people")
@@ -167,6 +188,8 @@ export async function submitConsent(
   for (const [permId, granted] of Object.entries(input.permissions)) {
     if (!granted) continue;
     const channel = PERMISSION_CHANNEL[permId];
+    // I05 is a preference to be asked later, never advance recording consent.
+    if (!channel) continue;
     const wordingVersion = WORDING_VERSION_BY_CHANNEL[channel];
     const { data: wording, error: wErr } = await client
       .from("consent_wording_versions")

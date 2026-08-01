@@ -7,7 +7,7 @@
 -- plus the trigger behaviour.
 
 begin;
-select plan(14);
+select plan(16);
 
 -- pgTAP is a test-only dependency; install it here, not in a migration.
 create extension if not exists pgtap;
@@ -100,6 +100,27 @@ select is(
   (select granted from public.consent_state where person_id = '20000000-0000-0000-0000-000000000001' and channel = 'human_call'),
   false,
   'global suppression revokes every channel in consent_state'
+);
+
+-- Suppression remains authoritative when an ordinary later grant arrives.
+insert into public.consent_events (person_id, channel, consent_wording_version_id, granted, source)
+select '20000000-0000-0000-0000-000000000001', 'sms', id, true, 'survey'
+from public.consent_wording_versions where channel = 'sms' limit 1;
+
+select is(
+  (select granted from public.consent_state where person_id = '20000000-0000-0000-0000-000000000001' and channel = 'sms'),
+  false,
+  'channel suppression denies a later ordinary grant'
+);
+
+insert into public.consent_events (person_id, channel, consent_wording_version_id, granted, source)
+select '20000000-0000-0000-0000-000000000001', 'human_call', id, true, 'survey'
+from public.consent_wording_versions where channel = 'human_call' limit 1;
+
+select is(
+  (select granted from public.consent_state where person_id = '20000000-0000-0000-0000-000000000001' and channel = 'human_call'),
+  false,
+  'global suppression denies a later ordinary grant'
 );
 
 -- 5. Consent receipts: token hash is unique; staff can read, auditor read-only.

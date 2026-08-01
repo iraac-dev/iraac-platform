@@ -1,106 +1,116 @@
 #!/usr/bin/env bash
-# REL-P1 synthetic load rehearsal for the anonymous survey submission path.
+# REL-P1 fail-closed synthetic HTTP rehearsal.
 #
-# Submits N anonymous completions with unique client tokens, then verifies
-# the idempotency guarantee: re-submitting the same token must NOT create a
-# second completion. All data is synthetic; never point at production.
-#
-# Usage (from repo root):
-#   ./scripts/load-rehearsal.sh [count] [endpoint]
-#     count    total submissions to attempt (default 1000; 10000 for full)
-#     endpoint submit URL (default http://127.0.0.1:3000/api/survey/submit)
-#
-# Exit 0 = rehearsal passed.
+# The endpoint must be a deliberately activated local/staging release. This
+# script never falls back to a one-row database check and never treats a partial
+# run as success.
 set -euo pipefail
 
 COUNT="${1:-1000}"
 ENDPOINT="${2:-http://127.0.0.1:3000/api/survey/submit}"
-CONCURRENCY=10
+CONCURRENCY="${REHEARSAL_CONCURRENCY:-10}"
+: "${IRAAC_LOAD_REHEARSAL_KEY:?Set the non-production rehearsal key}"
+: "${REHEARSAL_DATABASE_URL:?Set the disposable environment database URL for reconciliation}"
 
-echo "== REL-P1 load rehearsal (synthetic) =="
-echo "  endpoint: ${ENDPOINT}"
-echo "  submissions: ${COUNT}"
-
-# Probe: a valid minimal anonymous adult submit should return 200.
-PROBE_BODY='{"answers":{"A01":"Yes","A02":"Yes"},"clientToken":"probe-token-000","completionMode":"web"}'
-PROBE_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 -X POST \
-  -H 'Content-Type: application/json' -d "$PROBE_BODY" "${ENDPOINT}" 2>/dev/null || echo 000)
-
-if [ "$PROBE_CODE" = "200" ]; then
-  DB_MODE=0
-  echo "  probe: HTTP 200 — running HTTP load"
-else
-  DB_MODE=1
-  echo "  probe: HTTP ${PROBE_CODE} — endpoint not serving; falling back to DB idempotency check."
+if [ "${#IRAAC_LOAD_REHEARSAL_KEY}" -lt 32 ]; then
+  echo "IRAAC_LOAD_REHEARSAL_KEY must be at least 32 characters" >&2
+  exit 2
 fi
 
-rm -f /tmp/load-pass.txt /tmp/load-fail.txt
+case "$COUNT" in
+  ''|*[!0-9]*) echo "COUNT must be a positive integer" >&2; exit 2 ;;
+esac
+if [ "$COUNT" -lt 1 ] || [ "$COUNT" -gt 10000 ]; then
+  echo "COUNT must be between 1 and 10000" >&2
+  exit 2
+fi
+
+case "$ENDPOINT" in
+  http://127.0.0.1:*|http://localhost:*|https://*.vercel.app/*) ;;
+  *)
+    if [ "${IRAAC_ALLOW_REMOTE_REHEARSAL:-}" != "YES" ]; then
+      echo "Refusing a non-local/non-preview endpoint without IRAAC_ALLOW_REMOTE_REHEARSAL=YES" >&2
+      exit 2
+    fi
+    ;;
+esac
+
+RUN_DIR=$(mktemp -d "${TMPDIR:-/tmp}/iraac-rel-p1.XXXXXX")
+chmod 700 "$RUN_DIR"
+trap 'rm -rf "$RUN_DIR"' EXIT INT TERM
+RUN_HEX=$(od -An -N3 -tx1 /dev/urandom | tr -d ' \n')
+
+echo "== REL-P1 synthetic HTTP rehearsal =="
+echo "  endpoint: $ENDPOINT"
+echo "  submissions: $COUNT"
+echo "  concurrency: $CONCURRENCY"
+
+request_once() {
+  local body="$1" output="$2"
+  curl -sS --max-time 30 -o "$output" -w "%{http_code}" \
+    -X POST -H 'Content-Type: application/json' -H "x-iraac-rehearsal-key: $IRAAC_LOAD_REHEARSAL_KEY" \
+    -d "$body" "$ENDPOINT"
+}
 
 run_one() {
-  local idx="$1"
-  local t="load-$(date +%s)-${idx}-$RANDOM"
-  local body="{\"answers\":{\"A01\":\"Yes\",\"A02\":\"Yes\"},\"clientToken\":\"${t}\",\"completionMode\":\"web\"}"
-  local code code2
-  code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 -X POST \
-    -H 'Content-Type: application/json' -d "$body" "${ENDPOINT}" 2>/dev/null || echo 000)
-  if [ "$code" = "200" ]; then
-    code2=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 -X POST \
-      -H 'Content-Type: application/json' -d "$body" "${ENDPOINT}" 2>/dev/null || echo 000)
-    if [ "$code2" = "200" ]; then
-      echo "ok" >> /tmp/load-pass.txt
-    else
-      echo "dup-fail-${code2}" >> /tmp/load-fail.txt
-    fi
-  else
-    echo "fail-${code}" >> /tmp/load-fail.txt
+  local idx="$1" idx_hex token body code first second
+  idx_hex=$(printf '%06x' "$idx")
+  token="10000000-0000-4000-8000-${RUN_HEX}${idx_hex}"
+  body="{\"answers\":{\"A01\":\"Yes\",\"A02\":\"Yes\"},\"clientToken\":\"${token}\",\"completionMode\":\"web\"}"
+  first="$RUN_DIR/first-${idx}.json"
+  second="$RUN_DIR/second-${idx}.json"
+
+  code=$(request_once "$body" "$first" || true)
+  if [ "$code" != "200" ] || ! grep -q '"status":"completed"' "$first"; then
+    printf 'first-%s-http-%s\n' "$idx" "${code:-000}" > "$RUN_DIR/fail-${idx}"
+    return
   fi
+
+  code=$(request_once "$body" "$second" || true)
+  if [ "$code" != "200" ] || ! grep -q '"status":"duplicate"' "$second"; then
+    printf 'duplicate-%s-http-%s\n' "$idx" "${code:-000}" > "$RUN_DIR/fail-${idx}"
+    return
+  fi
+
+  : > "$RUN_DIR/pass-${idx}"
 }
-export -f run_one
-export ENDPOINT
 
-if [ "$DB_MODE" = "0" ]; then
-  echo "  sending ${COUNT} submissions with ${CONCURRENCY} workers..."
-  seq 1 "$COUNT" | xargs -P "$CONCURRENCY" -I{} bash -c 'run_one {}' 2>/dev/null || true
-else
-  # DB idempotency check: insert one session twice via the local DB and
-  # assert a single row for the token. client_token is a uuid column.
-  DB_CONTAINER="supabase_db_iraac-platform"
-  DUP_TOKEN="11111111-2222-3333-4444-555555555555"
-  if docker ps --format '{{.Names}}' | grep -q "^${DB_CONTAINER}$"; then
-    docker exec "$DB_CONTAINER" psql -U postgres -d postgres -c \
-      "insert into public.survey_sessions (survey_version_id, completion_mode, anonymous, status, client_token, completed_at)
-       values ('10000000-0000-0000-0000-000000000002','web',true,'completed','${DUP_TOKEN}', now())
-       on conflict do nothing;" >/dev/null 2>&1 || true
-    docker exec "$DB_CONTAINER" psql -U postgres -d postgres -c \
-      "insert into public.survey_sessions (survey_version_id, completion_mode, anonymous, status, client_token, completed_at)
-       values ('10000000-0000-0000-0000-000000000002','web',true,'completed','${DUP_TOKEN}', now())
-       on conflict do nothing;" >/dev/null 2>&1 || true
-    ROWS=$(docker exec "$DB_CONTAINER" psql -U postgres -d postgres -tAc \
-      "select count(*) from public.survey_sessions where client_token='${DUP_TOKEN}';" | tr -d ' ')
-    if [ "$ROWS" = "1" ]; then
-      echo "ok-db-idempotent" > /tmp/load-pass.txt
-    else
-      echo "db-dup-fail-${ROWS}" > /tmp/load-fail.txt
-    fi
-  else
-    echo "no-db-no-endpoint" > /tmp/load-fail.txt
-  fi
-fi
+export ENDPOINT RUN_DIR RUN_HEX IRAAC_LOAD_REHEARSAL_KEY
+export -f request_once run_one
 
-pass=0; fail=0
-if [ -f /tmp/load-pass.txt ]; then pass=$(wc -l < /tmp/load-pass.txt | tr -d ' '); fi
-if [ -f /tmp/load-fail.txt ]; then fail=$(wc -l < /tmp/load-fail.txt | tr -d ' '); fi
+seq 1 "$COUNT" | xargs -P "$CONCURRENCY" -I{} bash -c 'run_one "$1"' _ {}
 
-echo "  passed (200 + duplicate-200): ${pass}"
-echo "  failed: ${fail}"
+pass=$(find "$RUN_DIR" -name 'pass-*' -type f | wc -l | tr -d ' ')
+fail=$(find "$RUN_DIR" -name 'fail-*' -type f | wc -l | tr -d ' ')
 
-if [ "$fail" -gt 0 ]; then
-  echo "FAIL: ${fail} checks failed"
-  head -5 /tmp/load-fail.txt || true
+echo "  completed + duplicate verified: $pass"
+echo "  failed: $fail"
+
+if [ "$fail" -ne 0 ] || [ "$pass" -ne "$COUNT" ]; then
+  echo "FAIL: expected $COUNT complete-and-duplicate pairs" >&2
+  find "$RUN_DIR" -maxdepth 1 -name 'fail-*' -type f -exec head -n 1 {} \; | head -10 >&2
   exit 1
 fi
-if [ "$DB_MODE" = "0" ] && [ "$pass" -lt "$COUNT" ]; then
-  echo "WARN: only ${pass}/${COUNT} completed (rate limiting or endpoint capacity — review before full 10k)."
+
+read -r persisted distinct_tokens answer_rows incomplete < <(
+  psql "$REHEARSAL_DATABASE_URL" -At -F ' ' -v ON_ERROR_STOP=1 -c "
+    with run_sessions as (
+      select id, client_token, status from public.survey_sessions
+      where client_token::text like '10000000-0000-4000-8000-${RUN_HEX}%'
+    )
+    select
+      (select count(*) from run_sessions),
+      (select count(distinct client_token) from run_sessions),
+      (select count(*) from public.survey_answers a join run_sessions s on s.id = a.session_id),
+      (select count(*) from run_sessions where status <> 'completed');"
+)
+
+if [ "$persisted" -ne "$COUNT" ] || [ "$distinct_tokens" -ne "$COUNT" ] || \
+   [ "$answer_rows" -ne $((COUNT * 2)) ] || [ "$incomplete" -ne 0 ]; then
+  echo "FAIL: persistence reconciliation sessions=${persisted} tokens=${distinct_tokens} answers=${answer_rows} incomplete=${incomplete}" >&2
+  exit 1
 fi
 
-echo "== rehearsal complete =="
+echo "  persisted sessions/tokens: $persisted/$distinct_tokens; answers: $answer_rows"
+
+echo "== rehearsal passed =="

@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_LIMIT, rateLimit, resetRateLimiter } from "../lib/rate-limit";
-import { validateAnonymousSubmission } from "../lib/survey-submit";
+import { assertSurveyReleaseActive, validateAnonymousSubmission } from "../lib/survey-submit";
 import {
   FIXTURE_ANONYMOUS_FULL,
   FIXTURE_ANONYMOUS_MINIMAL,
   FIXTURE_NO_CONSENT,
   FIXTURE_SKIP_PERSONAL,
   FIXTURE_WITH_FOLLOWUP,
+  SURVEY_V1_HASH,
 } from "@iraac/survey-contract";
 
 describe("rate limiter", () => {
@@ -65,6 +66,10 @@ describe("validateAnonymousSubmission", () => {
     expect(() => validateAnonymousSubmission({ A01: "Prefer not to say" })).toThrow(/adult gate/);
   });
 
+  it("requires the A02 safety choice", () => {
+    expect(() => validateAnonymousSubmission({ A01: "Yes" })).toThrow(/A02/);
+  });
+
   it("blocks terminal-stop paths (person / immediate help)", () => {
     expect(() => validateAnonymousSubmission({ A01: "Yes", A02: "I would rather speak with a person" })).toThrow(/person pathway/);
     expect(() => validateAnonymousSubmission({ A01: "Yes", A02: "I need immediate help" })).toThrow(/immediate help/);
@@ -102,5 +107,35 @@ describe("validateAnonymousSubmission", () => {
     const out = validateAnonymousSubmission(FIXTURE_WITH_FOLLOWUP);
     expect(out.A01).toBe("Yes");
     expect(out.H01).toBeUndefined(); // follow-up contact is CONS-001 scope
+  });
+});
+
+describe("survey release collection interlock", () => {
+  function releaseClient(status: string, contentHash = SURVEY_V1_HASH) {
+    return {
+      from: () => ({
+        select: () => ({
+          eq: () => ({
+            maybeSingle: async () => ({
+              data: { status, content_hash: contentHash },
+              error: null,
+            }),
+          }),
+        }),
+      }),
+    } as never;
+  }
+
+  it("allows only the active release with the canonical hash", async () => {
+    await expect(assertSurveyReleaseActive(releaseClient("active"))).resolves.toBeUndefined();
+  });
+
+  it("rejects draft and superseded releases", async () => {
+    await expect(assertSurveyReleaseActive(releaseClient("draft"))).rejects.toThrow(/not active/);
+    await expect(assertSurveyReleaseActive(releaseClient("superseded"))).rejects.toThrow(/not active/);
+  });
+
+  it("rejects a release whose stored contract hash differs", async () => {
+    await expect(assertSurveyReleaseActive(releaseClient("active", "wrong-hash"))).rejects.toThrow(/hash mismatch/);
   });
 });

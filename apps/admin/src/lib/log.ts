@@ -1,54 +1,38 @@
-/**
- * OPS-001 structured JSON logger with a hard no-PII rule.
- *
- * Every log line is a single JSON object: { level, msg, ts, ...fields }.
- * Known PII keys (emails, mobiles, names, tokens, answers, session/person
- * ids that could identify a respondent) are STRIPPED even if a caller passes
- * them — the logger refuses to emit them, not merely warns.
- */
-const LEVELS = ["debug", "info", "warn", "error"] as const;
-type Level = (typeof LEVELS)[number];
+/** Structured operational logger. Events and fields are allowlisted. */
+type Level = "debug" | "info" | "warn" | "error";
+type EventCode =
+  | "survey_submit_failure"
+  | "consent_submit_failure"
+  | "consent_withdraw_failure"
+  | "health_check_failure"
+  | "unknown_event";
 
-/** Keys that must never appear in a log line, at any depth. */
-const STRIPPED_KEYS = new Set([
-  "email",
-  "mobile",
-  "mobile_number",
-  "phone",
-  "name",
-  "full_name",
-  "token",
-  "token_hash",
-  "receiptToken",
-  "password",
-  "answers",
-  "answer",
-  "answer_value",
-  "clientToken",
-  "person_id",
-  "sessionId",
-  "session_id",
-  "contact",
-  "permissions",
+const EVENTS = new Set<EventCode>([
+  "survey_submit_failure",
+  "consent_submit_failure",
+  "consent_withdraw_failure",
+  "health_check_failure",
+  "unknown_event",
 ]);
 
-function redact(value: unknown, key = ""): unknown {
-  if (STRIPPED_KEYS.has(key)) return "[REDACTED]";
-  if (Array.isArray(value)) return value.map((v) => redact(v));
-  if (value && typeof value === "object") {
-    return Object.fromEntries(
-      Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, redact(v, k)]),
-    );
+function safeFields(fields: Record<string, unknown>): Record<string, string | number | boolean> {
+  const output: Record<string, string | number | boolean> = {};
+  if (typeof fields.errorType === "string" && /^[A-Za-z0-9_.-]{1,64}$/.test(fields.errorType)) {
+    output.errorType = fields.errorType;
   }
-  return value;
+  for (const key of ["durationMs", "statusCode", "count"] as const) {
+    if (typeof fields[key] === "number" && Number.isFinite(fields[key])) output[key] = fields[key];
+  }
+  return output;
 }
 
-export function log(level: Level, msg: string, fields: Record<string, unknown> = {}) {
+export function log(level: Level, event: EventCode, fields: Record<string, unknown> = {}) {
+  const trustedEvent = EVENTS.has(event) ? event : "unknown_event";
   const line = JSON.stringify({
+    ...safeFields(fields),
     level,
-    msg,
+    event: trustedEvent,
     ts: new Date().toISOString(),
-    ...(redact(fields) as Record<string, unknown>),
   });
   if (level === "error") console.error(line);
   else if (level === "warn") console.warn(line);
@@ -57,8 +41,8 @@ export function log(level: Level, msg: string, fields: Record<string, unknown> =
 }
 
 export const logger = {
-  debug: (msg: string, fields?: Record<string, unknown>) => log("debug", msg, fields),
-  info: (msg: string, fields?: Record<string, unknown>) => log("info", msg, fields),
-  warn: (msg: string, fields?: Record<string, unknown>) => log("warn", msg, fields),
-  error: (msg: string, fields?: Record<string, unknown>) => log("error", msg, fields),
+  debug: (event: EventCode, fields?: Record<string, unknown>) => log("debug", event, fields),
+  info: (event: EventCode, fields?: Record<string, unknown>) => log("info", event, fields),
+  warn: (event: EventCode, fields?: Record<string, unknown>) => log("warn", event, fields),
+  error: (event: EventCode, fields?: Record<string, unknown>) => log("error", event, fields),
 };

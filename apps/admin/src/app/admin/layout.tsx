@@ -10,7 +10,7 @@ export const metadata = {
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await getAdminSession();
   // Anonymous or wrong-role: never admitted to the dashboard.
-  if (!session) redirect("/admin/login");
+  if (!session) redirect("/staff-sign-in");
 
   return (
     <main className="admin-page">

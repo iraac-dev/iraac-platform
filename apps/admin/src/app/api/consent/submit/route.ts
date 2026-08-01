@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/survey-submit";
 import { submitConsent, validateConsentInput } from "@/lib/consent-submit";
 import { rateLimit } from "@/lib/rate-limit";
+import { logger } from "@/lib/log";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -48,7 +49,7 @@ export async function POST(req: NextRequest) {
     if (/required|not found|not completed|already recorded|wording/i.test(message)) {
       return NextResponse.json({ ok: false, status: "invalid", reason: message }, { status: 400, headers: NO_STORE });
     }
-    console.error("CONS-001 consent submit failure", { message });
+    logger.error("consent_submit_failure", { errorType: err instanceof Error ? err.name : "UnknownError" });
     return NextResponse.json({ ok: false, status: "error", reason: "Server error" }, { status: 500, headers: NO_STORE });
   }
 }

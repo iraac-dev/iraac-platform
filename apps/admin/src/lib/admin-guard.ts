@@ -1,4 +1,4 @@
-import { createServerSupabase, roleFromUser } from "./supabase-server";
+import { adminAccessFromUser, createServerSupabase } from "./supabase-server";
 import type { AdminRole } from "./supabase-server";
 
 /**
@@ -16,7 +16,11 @@ export async function getAdminSession(): Promise<
   } = await supabase.auth.getUser();
   if (error || !user) return null;
 
-  const role = roleFromUser(user);
+  const { data: assurance, error: assuranceError } =
+    await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+  if (assuranceError || assurance?.currentLevel !== "aal2") return null;
+
+  const role = adminAccessFromUser(user);
   if (!role) return null;
 
   return { email: user.email ?? "unknown", role };

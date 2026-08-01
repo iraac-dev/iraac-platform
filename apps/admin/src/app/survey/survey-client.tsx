@@ -29,6 +29,15 @@ function toAnswerMap(answers: Record<string, string | string[] | null>): AnswerM
   return answers as AnswerMap;
 }
 
+function createClientToken(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (character) => {
+    const random = Math.floor(Math.random() * 16);
+    const value = character === "x" ? random : (random & 0x3) | 0x8;
+    return value.toString(16);
+  });
+}
+
 /** Renders one question with accessible controls; no third-party anything. */
 function QuestionField({
   question,
@@ -56,6 +65,7 @@ function QuestionField({
           maxLength={question.maxLength ?? 500}
           value={typeof value === "string" ? value : ""}
           onChange={(e) => onChange(e.target.value)}
+          required={required}
           aria-describedby={`${id}-hint`}
         />
         <p id={`${id}-hint`} className="hint">
@@ -88,6 +98,7 @@ function QuestionField({
                 name={multi ? undefined : id}
                 value={opt}
                 checked={checked}
+                required={required && !multi}
                 onChange={() => {
                   if (multi) {
                     const next = checked ? current.filter((x) => x !== opt) : [...current, opt];
@@ -124,12 +135,8 @@ export default function SurveyClient() {
   const [submitState, setSubmitState] = useState<SubmitState>({ phase: "idle" });
   const [consentState, setConsentState] = useState<ConsentState>({ phase: "idle" });
   const [contactForm, setContactForm] = useState({ name: "", email: "", mobile: "" });
-  const [permissions, setPermissions] = useState<Record<string, boolean>>({ I01: false, I02: false, I03: false, I04: false, I05: false });
-  const [clientToken] = useState<string>(() =>
-    typeof crypto !== "undefined" && "randomUUID" in crypto
-      ? crypto.randomUUID()
-      : `tok-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-  );
+  const [permissions, setPermissions] = useState<Record<string, boolean>>({ I01: false, I02: false, I03: false, I04: false });
+  const [clientToken] = useState<string>(createClientToken);
 
   const current = getQuestion(currentId);
   const stop = terminalStop(toAnswerMap(answers));
@@ -210,7 +217,13 @@ export default function SurveyClient() {
     return (
       <section className="survey-end" aria-live="polite">
         <h2>We have stopped the questions</h2>
-        <p>{stop.reason === "A02: immediate help pathway" ? "You asked for immediate help." : "You asked to speak with a person."}</p>
+        <p>
+          {stop.reason === "A02: immediate help pathway"
+            ? "You asked for immediate help."
+            : stop.reason === "A02: human pathway"
+              ? "You asked to speak with a person."
+              : "You chose not to continue with this survey."}
+        </p>
         <p>You can speak with an IRAAC worker instead of continuing. If you or someone else is in immediate danger, call 000. For culturally safe crisis support, call 13YARN on 13 92 76.</p>
         <p>
           <a href="tel:139276" className="btn">Call 13YARN (13 92 76)</a>{" "}
@@ -284,10 +297,9 @@ export default function SurveyClient() {
                 <input type="checkbox" checked={permissions.I04} onChange={() => setPermissions((p) => ({ ...p, I04: !p.I04 }))} />
                 <span>An IRAAC AI assistant may call me about future surveys. The call will identify itself as AI and I can ask for a person or end the call.</span>
               </label>
-              <label className="option">
-                <input type="checkbox" checked={permissions.I05} onChange={() => setPermissions((p) => ({ ...p, I05: !p.I05 }))} />
-                <span>If IRAAC later proposes recording or retaining a phone transcript, ask me for separate permission at that time.</span>
-              </label>
+              <p className="hint">
+                Recording is not authorised here. If a future call proposes recording or retaining a transcript, IRAAC must ask separately during that call.
+              </p>
             </fieldset>
 
             <div className="nav">

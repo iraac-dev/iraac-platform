@@ -14,7 +14,12 @@ export async function GET() {
   const started = Date.now();
   try {
     const client = createAdminClient();
-    const { error } = await client.from("survey_sessions").select("id", { count: "exact", head: true });
+    const { error } = await Promise.race([
+      client.from("survey_sessions").select("id").limit(1),
+      new Promise<{ error: Error }>((resolve) => {
+        setTimeout(() => resolve({ error: new Error("Database readiness timeout") }), 3000);
+      }),
+    ]);
     if (error) {
       return NextResponse.json(
         { ok: false, db: "down", ms: Date.now() - started },
