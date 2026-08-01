@@ -17,9 +17,19 @@ The roadmap in this repository is authoritative.
 
 Hermes produced four draft PRs: #4 consent, #5 admin, #6 operations and #7
 release rehearsal. They were independently reviewed and integrated by Codex on
-`codex/p1-integrated-review`. Do not merge #4–#7 independently. Their work is
+`codex/p1-integrated-review` in draft PR #8. The locally verified implementation
+checkpoint is `25d715944b866f9e700bbc12c1f20083a2b68fbe`; the later handoff commit
+changes documentation only. Do not merge #4–#7 independently. Their work is
 valuable, but their completion claims were false when evaluated as one system.
 The integrated correction PR supersedes them.
+
+PR: `https://github.com/iraac-dev/iraac-platform/pull/8`
+
+Local evidence on the verification checkpoint: lint and typecheck passed; 70
+application/contract tests passed; the production build passed; full npm audit
+reported zero vulnerabilities; a fresh Supabase reset and schema lint passed;
+42 pgTAP tests passed; shell syntax and diff checks passed. GitHub CI on PR #8
+must still complete before the candidate is described as CI-verified.
 
 Confirmed original defects included: collection against a draft survey;
 completion-mode spoofing; blanket current/future standard-role CRUD; STOP that

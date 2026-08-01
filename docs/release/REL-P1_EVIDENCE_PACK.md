@@ -5,7 +5,22 @@
 The Hermes P1 branches contain substantial useful implementation, but the
 claim “P1 build complete” was not supported when the branches were tested as a
 system. Three independent reviews and the integrated diff identified release
-blockers. This correction branch is the only P1 review candidate.
+blockers. Draft PR #8 is the only P1 review candidate. Local verification
+applies to commit `25d715944b866f9e700bbc12c1f20083a2b68fbe`; the following
+handoff commit changes documentation only.
+
+## Executed evidence on the verification checkpoint
+
+- lint and typecheck: PASS
+- application/contract tests: 70 PASS
+- production build: PASS
+- dependency audit: 0 vulnerabilities
+- fresh Supabase reset and schema lint: PASS
+- pgTAP: 42 PASS
+- shell syntax and diff checks: PASS
+
+GitHub CI, the full restore, browser/accessibility suite and 10,000-response
+rehearsal are not included in these local claims.
 
 ## Confirmed defects and disposition
 

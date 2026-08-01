@@ -6,7 +6,7 @@ administrator permission.
 
 | Gate | Evidence required | Status |
 |---|---|---|
-| Integrated candidate | PRs #4–#7 reconciled into one committed PR with exact SHA and CI evidence | OPEN until commit/PR/CI |
+| Integrated candidate | PRs #4–#7 reconciled into draft PR #8; verification SHA recorded | PARTIAL — local gates pass; GitHub CI pending |
 | Active survey interlock | Draft/superseded/hash-mismatch submissions rejected | PASS (unit) |
 | Canonical renderer | A01/A02 stop, required fields, repeat groups, browser accessibility | OPEN |
 | Consent integrity | One transaction writes identity, contact, events, receipt items and audit | OPEN |
