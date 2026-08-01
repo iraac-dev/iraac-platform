@@ -103,23 +103,20 @@ select is(
 );
 
 -- 5. Consent receipts: token hash is unique; staff can read, auditor read-only.
-insert into public.consent_receipts (person_id, wording_version_id, token_hash, channel, granted, expires_at)
-select
+insert into public.consent_receipts (person_id, token_hash, channel, granted, expires_at)
+values (
   '20000000-0000-0000-0000-000000000001',
-  id,
   'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789',
   'email',
   true,
   now() + interval '12 months'
-from public.consent_wording_versions
-where channel = 'email' limit 1;
+);
 
 select throws_ok(
-  $$insert into public.consent_receipts (person_id, wording_version_id, token_hash, channel, granted, expires_at)
-    select '20000000-0000-0000-0000-000000000001', id,
+  $$insert into public.consent_receipts (person_id, token_hash, channel, granted, expires_at)
+    values ('20000000-0000-0000-0000-000000000001',
       'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789',
-      'sms', true, now() + interval '12 months'
-    from public.consent_wording_versions where channel = 'sms' limit 1$$,
+      'sms', true, now() + interval '12 months')$$,
   null, null,
   'duplicate token_hash is rejected'
 );
@@ -159,11 +156,10 @@ select isnt_empty(
   'auditor can read consent receipts'::text
 );
 select throws_ok(
-  $$insert into public.consent_receipts (person_id, wording_version_id, token_hash, channel, granted, expires_at)
-    select '20000000-0000-0000-0000-000000000001', id,
+  $$insert into public.consent_receipts (person_id, token_hash, channel, granted, expires_at)
+    values ('20000000-0000-0000-0000-000000000001',
       'fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210',
-      'sms', true, now() + interval '12 months'
-    from public.consent_wording_versions where channel = 'sms' limit 1$$,
+      'sms', true, now() + interval '12 months')$$,
   null, null,
   'auditor insert on consent_receipts denied'::text
 );

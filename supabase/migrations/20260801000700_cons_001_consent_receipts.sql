@@ -96,15 +96,15 @@ for each row execute function public.apply_suppression_to_state();
 
 -- 3. Consent receipts: the no-login credential a respondent keeps. The raw
 --    token is never stored; only its SHA-256 hex hash, looked up on
---    withdrawal/preferences requests.
+--    withdrawal/preferences requests. The versioned wording the person saw
+--    lives on consent_events; the receipt is the credential alone.
 create table public.consent_receipts (
   id uuid primary key default gen_random_uuid(),
   person_id uuid not null references public.people(id) on delete cascade,
   survey_session_id uuid references public.survey_sessions(id) on delete set null,
-  wording_version_id uuid not null references public.consent_wording_versions(id),
   token_hash text not null unique,
-  channel text not null check (channel in ('email', 'sms', 'human_call', 'ai_call', 'recording', 'newsletter')),
-  granted boolean not null,
+  channel text check (channel in ('email', 'sms', 'human_call', 'ai_call', 'recording', 'newsletter')),
+  granted boolean not null default false,
   expires_at timestamptz not null,
   created_at timestamptz not null default now(),
   revoked_at timestamptz

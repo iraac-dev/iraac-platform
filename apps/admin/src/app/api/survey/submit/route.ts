@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, status: "duplicate", reason: result.reason }, { status: 200, headers: NO_STORE });
     }
     return NextResponse.json(
-      { ok: true, status: "completed", completionRef: result.completionRef, releaseHash: SURVEY_V1_HASH },
+      { ok: true, status: "completed", sessionId: result.sessionId, completionRef: result.completionRef, releaseHash: SURVEY_V1_HASH },
       { status: 200, headers: NO_STORE },
     );
   } catch (err) {
