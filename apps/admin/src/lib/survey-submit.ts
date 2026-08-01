@@ -5,6 +5,14 @@
  * from a Next.js server route, validates every answer against the frozen
  * @iraac/survey-contract contract, enforces the adult gate and branch
  * conformance, then writes one idempotent completion via the service role.
+ *
+ * R4: submission is gated by TWO independent interlocks — the release must
+ * be active with the canonical hash (authoring state) AND collection must
+ * not be paused (operational state, singleton collection_controls row read
+ * via is_collection_paused()). A pause throws "Survey release is not
+ * active: collection is paused", which the route's existing
+ * /release is not active/i mapping turns into a 503 without touching the
+ * route file.
  */
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
@@ -42,6 +50,12 @@ const V1_DEFINITION_ID = "10000000-0000-0000-0000-000000000001";
 /**
  * Collection interlock. A deployed route must not turn a draft or superseded
  * contract into a live survey merely because it has the service-role key.
+ *
+ * R4: additionally fails closed on the operational pause — a live release
+ * can be paused for collection independently of its authoring status. The
+ * pause error deliberately reads "Survey release is not active: collection
+ * is paused" so the route's existing /release is not active/i mapping
+ * returns 503 without any route change.
  */
 export async function assertSurveyReleaseActive(client: SupabaseClient): Promise<void> {
   const { data: release, error } = await client
@@ -58,6 +72,17 @@ export async function assertSurveyReleaseActive(client: SupabaseClient): Promise
   }
   if (release.content_hash !== SURVEY_V1_HASH) {
     throw new Error("Survey release hash mismatch");
+  }
+
+  // Operational interlock: independent of authoring state. A pause check
+  // failure fails CLOSED (unavailable) — we must never accept responses
+  // when the pause state cannot be read.
+  const { data: paused, error: pauseErr } = await client.rpc("is_collection_paused");
+  if (pauseErr) {
+    throw new Error("Survey release is unavailable");
+  }
+  if (paused === true) {
+    throw new Error("Survey release is not active: collection is paused");
   }
 }
 

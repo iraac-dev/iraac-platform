@@ -190,7 +190,7 @@ describe("buildAnswerRows", () => {
 });
 
 describe("survey release collection interlock", () => {
-  function releaseClient(status: string, contentHash = SURVEY_V1_HASH) {
+  function releaseClient(status: string, contentHash = SURVEY_V1_HASH, paused = false) {
     return {
       from: () => ({
         select: () => ({
@@ -202,19 +202,48 @@ describe("survey release collection interlock", () => {
           }),
         }),
       }),
+      rpc: async (fn: string) => {
+        if (fn !== "is_collection_paused") throw new Error(`unexpected rpc: ${fn}`);
+        return { data: paused, error: null };
+      },
     } as never;
   }
 
-  it("allows only the active release with the canonical hash", async () => {
+  it("allows only the active release with the canonical hash while collection is open", async () => {
     await expect(assertSurveyReleaseActive(releaseClient("active"))).resolves.toBeUndefined();
   });
 
-  it("rejects draft and superseded releases", async () => {
+  it("rejects draft and superseded releases even when collection is open", async () => {
     await expect(assertSurveyReleaseActive(releaseClient("draft"))).rejects.toThrow(/not active/);
     await expect(assertSurveyReleaseActive(releaseClient("superseded"))).rejects.toThrow(/not active/);
   });
 
   it("rejects a release whose stored contract hash differs", async () => {
     await expect(assertSurveyReleaseActive(releaseClient("active", "wrong-hash"))).rejects.toThrow(/hash mismatch/);
+  });
+
+  it("rejects a paused collection even when the release is active", async () => {
+    await expect(assertSurveyReleaseActive(releaseClient("active", SURVEY_V1_HASH, true))).rejects.toThrow(/collection is paused/);
+  });
+
+  it("pause rejection matches /release is not active/i so the route maps it to 503", async () => {
+    await expect(assertSurveyReleaseActive(releaseClient("active", SURVEY_V1_HASH, true))).rejects.toThrow(/release is not active/i);
+  });
+
+  it("fails closed when the pause check itself errors", async () => {
+    const client = {
+      from: () => ({
+        select: () => ({
+          eq: () => ({
+            maybeSingle: async () => ({
+              data: { status: "active", content_hash: SURVEY_V1_HASH },
+              error: null,
+            }),
+          }),
+        }),
+      }),
+      rpc: async () => ({ data: null, error: { message: "boom" } }),
+    } as never;
+    await expect(assertSurveyReleaseActive(client)).rejects.toThrow(/unavailable/);
   });
 });
