@@ -5,7 +5,9 @@ import Link from "next/link";
 import {
   SURVEY_V1_HASH,
   getQuestion,
+  isRepeatInstanceId,
   nextQuestionId,
+  repeatTopic,
   terminalStop,
   visibleQuestionIds,
 } from "@iraac/survey-contract";
@@ -38,17 +40,33 @@ function createClientToken(): string {
   });
 }
 
+/** Slugify any question key for use in an id attribute ("E01#Housing or homelessness" -> "e01-housing-or-homelessness"). */
+function slugifyId(id: string): string {
+  return id.replace(/[^a-z0-9]+/gi, "-").toLowerCase();
+}
+
 /** Renders one question with accessible controls; no third-party anything. */
 function QuestionField({
   question,
   value,
   onChange,
+  instanceId,
 }: {
   question: SurveyQuestion;
   value: AnswerValue;
   onChange: (v: AnswerValue) => void;
+  /**
+   * Display key for this instance. For repeat questions this is the composite
+   * id (e.g. "E01#Housing or homelessness") so element ids stay unique and
+   * answers are stored under the composite key; plain questions pass undefined
+   * and fall back to the base question id.
+   */
+  instanceId?: string;
 }) {
-  const id = `q-${question.id}`;
+  const key = instanceId ?? question.id;
+  const id = `q-${slugifyId(key)}`;
+  // The repeat topic (e.g. "Housing or homelessness") this instance is about.
+  const topic = instanceId ? repeatTopic(instanceId) : null;
   const options = question.options ?? [];
   const required = question.required && !question.optional;
 
@@ -56,6 +74,7 @@ function QuestionField({
     return (
       <div className="field">
         <label htmlFor={id}>
+          {topic && <strong className="repeat-topic">{topic}</strong>}
           {question.text}
           {required && <span className="req" aria-label="required"> *</span>}
         </label>
@@ -80,8 +99,9 @@ function QuestionField({
   const current = Array.isArray(value) ? value : [];
 
   return (
-    <fieldset className="field">
-      <legend>
+    <fieldset className="field" aria-labelledby={topic ? `${id}-legend` : undefined}>
+      <legend id={topic ? `${id}-legend` : undefined}>
+        {topic && <strong className="repeat-topic">{topic}</strong>}
         {question.text}
         {required && <span className="req" aria-label="required"> *</span>}
       </legend>
@@ -353,7 +373,8 @@ export default function SurveyClient() {
 
       <QuestionField
         question={current}
-        value={answers[current.id] ?? (current.type === "multi_choice" ? [] : null)}
+        instanceId={isRepeatInstanceId(currentId) ? currentId : undefined}
+        value={answers[currentId] ?? (current.type === "multi_choice" ? [] : null)}
         onChange={setAnswer}
       />
 

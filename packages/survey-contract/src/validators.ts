@@ -6,6 +6,7 @@
  */
 
 import { z } from "zod";
+import { baseQuestionId, isRepeatInstanceId, repeatTopic } from "./branching.ts";
 import { SURVEY_V1 } from "./definition.ts";
 import type { AnswerMap, ContactPermission, SurveyQuestion, ValidAnswerMap } from "./types.ts";
 
@@ -102,11 +103,42 @@ export function validateAnswer(question: SurveyQuestion, raw: unknown): string |
 /**
  * Validate a whole answer map (questions + contact permissions). Returns the
  * validated map. Unknown IDs and invalid shapes throw. Skipped (null/
- * undefined/empty-array) values are dropped.
+ * undefined/empty-array) values are dropped. Repeat-instance composite keys
+ * ("E01#Housing or homelessness") are resolved against the source question
+ * (question.repeatFor.questionId): the topic must be a current source
+ * selection, at most question.repeatFor.max instances per base question, and
+ * the composite key is preserved in the returned map.
  */
 export function validateAnswers(answers: AnswerMap): ValidAnswerMap {
   const out: ValidAnswerMap = {};
+  const instanceCounts = new Map<string, number>();
   for (const [id, raw] of Object.entries(answers)) {
+    if (isRepeatInstanceId(id)) {
+      const base = baseQuestionId(id);
+      const question = questionIndex.get(base);
+      if (!question) {
+        throw new Error(`Unknown question id: ${id}`);
+      }
+      if (!question.repeatFor) {
+        throw new Error(`Unexpected repeat answer for ${base}`);
+      }
+      const topic = repeatTopic(id);
+      const source = answers[question.repeatFor.questionId];
+      const selections = Array.isArray(source) ? source : [];
+      if (topic === null || !selections.includes(topic)) {
+        throw new Error(`Invalid repeat instance for ${base}: ${topic}`);
+      }
+      const count = (instanceCounts.get(base) ?? 0) + 1;
+      if (count > question.repeatFor.max) {
+        throw new Error(`Too many repeat instances for ${base}: max ${question.repeatFor.max}`);
+      }
+      instanceCounts.set(base, count);
+      const value = validateAnswer(question, raw);
+      if (value !== null) {
+        out[id] = value;
+      }
+      continue;
+    }
     const question = questionIndex.get(id);
     if (question) {
       const value = validateAnswer(question, raw);

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_LIMIT, rateLimit, resetRateLimiter } from "../lib/rate-limit";
-import { assertSurveyReleaseActive, validateAnonymousSubmission } from "../lib/survey-submit";
+import { assertSurveyReleaseActive, buildAnswerRows, validateAnonymousSubmission } from "../lib/survey-submit";
 import {
   FIXTURE_ANONYMOUS_FULL,
   FIXTURE_ANONYMOUS_MINIMAL,
@@ -8,6 +8,7 @@ import {
   FIXTURE_SKIP_PERSONAL,
   FIXTURE_WITH_FOLLOWUP,
   SURVEY_V1_HASH,
+  validateAnswers,
 } from "@iraac/survey-contract";
 
 describe("rate limiter", () => {
@@ -53,6 +54,29 @@ describe("validateAnonymousSubmission", () => {
     for (const id of ["H01", "H02", "H03", "H04", "H05", "H06", "I01", "I02", "I03", "I04", "I05"]) {
       expect(out[id]).toBeUndefined();
     }
+  });
+
+  it("preserves composite repeat keys under the same composite keys", () => {
+    const out = validateAnonymousSubmission(FIXTURE_ANONYMOUS_FULL);
+    expect(out["E01#Housing or homelessness"]).toEqual(["Cost", "Waiting time"]);
+    expect(out["E01#Work"]).toEqual(["Waiting time"]);
+    expect(out["E02#Housing or homelessness"]).toBe("More affordable housing options and easier access to services.");
+    expect(out["E02#Work"]).toBe("Work experience pathways would help.");
+    expect(out["E03#Housing or homelessness"]).toBe("Yes but it did not help enough");
+    expect(out["E03#Work"]).toBe("No");
+    // The base templates themselves must not appear as plain ids.
+    expect(out.E01).toBeUndefined();
+    expect(out.E02).toBeUndefined();
+    expect(out.E03).toBeUndefined();
+  });
+
+  it("rejects a repeat instance whose topic is not a current D03 selection", () => {
+    expect(() =>
+      validateAnswers({
+        D03: ["Food"],
+        "E01#Housing or homelessness": ["Cost"],
+      }),
+    ).toThrow(/invalid repeat instance/i);
   });
 
   it("accepts a no-consent fixture (declining must not block)", () => {
@@ -107,6 +131,61 @@ describe("validateAnonymousSubmission", () => {
     const out = validateAnonymousSubmission(FIXTURE_WITH_FOLLOWUP);
     expect(out.A01).toBe("Yes");
     expect(out.H01).toBeUndefined(); // follow-up contact is CONS-001 scope
+  });
+});
+
+describe("buildAnswerRows", () => {
+  const qidByKey = new Map<string, string>([
+    ["A01", "uuid-a01"],
+    ["D03", "uuid-d03"],
+    ["E01", "uuid-e01"],
+    ["E02", "uuid-e02"],
+    ["E03", "uuid-e03"],
+    ["G05", "uuid-g05"],
+  ]);
+
+  it("maps composite repeat keys to the base question id and the topic as repeat_key", () => {
+    const rows = buildAnswerRows(
+      {
+        "E01#Housing or homelessness": ["Cost", "Waiting time"],
+        "E01#Work": ["Waiting time"],
+        "E02#Housing or homelessness": "More affordable housing options and easier access to services.",
+      },
+      qidByKey,
+      "session-1",
+    );
+    expect(rows).toEqual([
+      { session_id: "session-1", question_id: "uuid-e01", repeat_key: "Housing or homelessness", answer_value: ["Cost", "Waiting time"] },
+      { session_id: "session-1", question_id: "uuid-e01", repeat_key: "Work", answer_value: ["Waiting time"] },
+      { session_id: "session-1", question_id: "uuid-e02", repeat_key: "Housing or homelessness", answer_value: "More affordable housing options and easier access to services." },
+    ]);
+  });
+
+  it("gives ordinary keys an empty repeat_key", () => {
+    const rows = buildAnswerRows({ A01: "Yes", G05: "Nothing to add." }, qidByKey, "session-1");
+    expect(rows).toEqual([
+      { session_id: "session-1", question_id: "uuid-a01", repeat_key: "", answer_value: "Yes" },
+      { session_id: "session-1", question_id: "uuid-g05", repeat_key: "", answer_value: "Nothing to add." },
+    ]);
+  });
+
+  it("skips keys that do not resolve in qidByKey", () => {
+    const rows = buildAnswerRows(
+      { A01: "Yes", "E01#Housing or homelessness": ["Cost"], B99: "not in this release" },
+      qidByKey,
+      "session-1",
+    );
+    expect(rows).toEqual([
+      { session_id: "session-1", question_id: "uuid-a01", repeat_key: "", answer_value: "Yes" },
+      { session_id: "session-1", question_id: "uuid-e01", repeat_key: "Housing or homelessness", answer_value: ["Cost"] },
+    ]);
+  });
+
+  it("skips non-anonymous H/I keys even when present in qidByKey", () => {
+    const withHI = new Map(qidByKey);
+    withHI.set("H01", "uuid-h01");
+    const rows = buildAnswerRows({ A01: "Yes", H01: "No, I just wanted to share" }, withHI, "session-1");
+    expect(rows.map((r) => r.question_id)).toEqual(["uuid-a01"]);
   });
 });
 

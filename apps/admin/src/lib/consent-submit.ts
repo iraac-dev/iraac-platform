@@ -7,6 +7,11 @@
  * contact details and grant separate, unticked channel permissions. Every
  * write goes through the service role — anon has no direct consent access.
  *
+ * Consent writes are now ONE transactional RPC (public.submit_consent):
+ * it captures the session, person, contact points, consent events and
+ * receipt atomically, and enforces deny-wins suppression via the existing
+ * trigger.
+ *
  * Receipt tokens are the no-login credential: the raw token is returned to
  * the respondent exactly once and only its SHA-256 hash is stored, so a
  * stolen DB never yields usable tokens.
@@ -23,15 +28,6 @@ const PERMISSION_CHANNEL: Record<string, string> = {
 };
 
 const ALL_PERMISSION_IDS = ["I01", "I02", "I03", "I04", "I05"];
-
-/** Wording version pinned for each channel (seeded by CONS-001 migration). */
-const WORDING_VERSION_BY_CHANNEL: Record<string, number> = {
-  email: 1,
-  sms: 1,
-  human_call: 1,
-  ai_call: 1,
-  recording: 1,
-};
 
 export interface ConsentInput {
   sessionId: string;
@@ -115,129 +111,48 @@ export function validateConsentInput(input: unknown): ConsentInput {
 }
 
 /**
- * Record one consent event per ticked permission, create/update the person
- * and contact points, and issue a hashed receipt token. Idempotent per
- * session: a second call for the same session returns the existing receipt.
+ * Record consent in a single transactional RPC (public.submit_consent).
+ * The RPC atomically resolves the completed session, upserts the person and
+ * contact points, writes one consent event per ticked permission, and issues
+ * a receipt with a 12-month expiry. Idempotent per session: a re-submit for
+ * the same session returns the existing receipt (created:false) instead of
+ * writing a second one.
  */
 export async function submitConsent(
   client: SupabaseClient,
   input: ConsentInput,
 ): Promise<ConsentResult> {
-  // Idempotency: one receipt per session.
-  const { data: existing } = await client
-    .from("consent_receipts")
-    .select("id, token_hash, expires_at, channel")
-    .eq("survey_session_id", input.sessionId)
-    .maybeSingle();
-
-  if (existing) {
-    // We cannot return the raw token again; issue a fresh one only if the old
-    // has not expired, otherwise refuse — a new session is required.
-    throw new Error("Consent already recorded for this session");
-  }
-
-  // 1. Resolve the session; it must exist and be completed.
-  const { data: session, error: sErr } = await client
-    .from("survey_sessions")
-    .select("id, status")
-    .eq("id", input.sessionId)
-    .maybeSingle();
-  if (sErr || !session) {
-    throw new Error("Survey session not found");
-  }
-  if (session.status !== "completed") {
-    throw new Error("Survey session is not completed");
-  }
-
-  // 2. Create or update the person from contact details (optional).
-  let personId: string | null = null;
-  const contact = input.contact;
-  const wantsContact = Object.entries(input.permissions).some(
-    ([permissionId, granted]) => granted && Boolean(PERMISSION_CHANNEL[permissionId]),
-  );
-  if (contact && (contact.email || contact.mobile || wantsContact)) {
-    const { data: person, error: pErr } = await client
-      .from("people")
-      .insert({
-        full_name: contact.name ?? null,
-        email: contact.email ?? null,
-        mobile_number: contact.mobile ?? null,
-      })
-      .select("id")
-      .single();
-    if (pErr) {
-      throw new Error(`Failed to create person: ${pErr.message}`);
-    }
-    personId = person.id as string;
-
-    // Contact points for the values provided.
-    const points: { person_id: string; kind: string; value: string }[] = [];
-    if (contact.email) points.push({ person_id: personId, kind: "email", value: contact.email });
-    if (contact.mobile) points.push({ person_id: personId, kind: "mobile", value: contact.mobile });
-    if (points.length > 0) {
-      const { error: cpErr } = await client.from("contact_points").insert(points);
-      if (cpErr) {
-        throw new Error(`Failed to record contact points: ${cpErr.message}`);
-      }
-    }
-  }
-
-  // 3. One consent event per ticked permission, linked to the exact wording
-  //    version the respondent saw (versioned receipt).
-  const grantedChannels: string[] = [];
-  for (const [permId, granted] of Object.entries(input.permissions)) {
-    if (!granted) continue;
-    const channel = PERMISSION_CHANNEL[permId];
-    // I05 is a preference to be asked later, never advance recording consent.
-    if (!channel) continue;
-    const wordingVersion = WORDING_VERSION_BY_CHANNEL[channel];
-    const { data: wording, error: wErr } = await client
-      .from("consent_wording_versions")
-      .select("id")
-      .eq("channel", channel)
-      .eq("version", wordingVersion)
-      .maybeSingle();
-    if (wErr || !wording) {
-      throw new Error(`Consent wording not found for ${channel} v${wordingVersion}`);
-    }
-    const { error: cErr } = await client.from("consent_events").insert({
-      person_id: personId,
-      channel,
-      consent_wording_version_id: wording.id,
-      granted: true,
-      source: "survey",
-    });
-    if (cErr) {
-      throw new Error(`Failed to record consent event: ${cErr.message}`);
-    }
-    grantedChannels.push(channel);
-  }
-
-  // 4. Issue the receipt token (store hash only).
+  // The raw token is returned to the respondent exactly once; only its
+  // SHA-256 hash is passed to (and stored by) the RPC.
   const rawToken = randomBytes(32).toString("hex");
-  const expiresAt = new Date(Date.now() + 12 * 30 * 24 * 60 * 60 * 1000); // ~12 months
-  const { data: receipt, error: rErr } = await client
-    .from("consent_receipts")
-    .insert({
-      person_id: personId,
-      survey_session_id: input.sessionId,
-      token_hash: sha256Hex(rawToken),
-      channel: grantedChannels[0] ?? null,
-      granted: grantedChannels.length > 0,
-      expires_at: expiresAt.toISOString(),
-    })
-    .select("id")
-    .single();
-  if (rErr) {
-    throw new Error(`Failed to create consent receipt: ${rErr.message}`);
+  const tokenHash = sha256Hex(rawToken);
+
+  const { data, error } = await client.rpc("submit_consent", {
+    p_session_id: input.sessionId,
+    p_name: input.contact?.name ?? null,
+    p_email: input.contact?.email ?? null,
+    p_mobile: input.contact?.mobile ?? null,
+    p_permissions: input.permissions,
+    p_token_hash: tokenHash,
+  });
+
+  if (error) {
+    throw new Error("Failed to record consent: " + error.message);
   }
 
+  // The RPC sets expires_at 12 months out; mirror it here for display.
+  const expiresAt = new Date(
+    Date.now() + 12 * 30 * 24 * 60 * 60 * 1000,
+  ).toISOString();
+
+  // created:false means a receipt already exists for this session — the RPC
+  // returned it, so an idempotent re-submit is not an error.
   return {
     ok: true,
-    receiptId: receipt.id as string,
+    receiptId: data.receipt_id,
     receiptToken: rawToken,
-    expiresAt: expiresAt.toISOString(),
-    grantedChannels,
+    expiresAt,
+    grantedChannels: data.granted_channels ?? [],
   };
 }
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ALL_PERMISSION_IDS, PERMISSION_CHANNEL, validateConsentInput, withdrawConsent } from "../lib/consent-submit";
+import { ALL_PERMISSION_IDS, PERMISSION_CHANNEL, submitConsent, validateConsentInput, withdrawConsent } from "../lib/consent-submit";
 
 describe("validateConsentInput", () => {
   it("accepts a valid body with ticked and unticked permissions", () => {
@@ -107,5 +107,77 @@ describe("withdrawConsent validation", () => {
 describe("permission channel map", () => {
   it("covers exactly I01–I05", () => {
     expect(ALL_PERMISSION_IDS).toEqual(["I01", "I02", "I03", "I04", "I05"]);
+  });
+});
+
+describe("submitConsent", () => {
+  it("makes exactly one rpc call", async () => {
+    const calls: { fn: string; args: Record<string, unknown> }[] = [];
+    const fakeClient = {
+      rpc: async (fn: string, args: Record<string, unknown>) => {
+        calls.push({ fn, args });
+        return {
+          data: {
+            created: true,
+            receipt_id: "40000000-0000-0000-0000-000000000001",
+            person_id: "40000000-0000-0000-0000-000000000002",
+            granted_channels: ["email"],
+          },
+          error: null,
+        };
+      },
+    } as never;
+
+    const result = await submitConsent(fakeClient, {
+      sessionId: "50000000-0000-0000-0000-000000000001",
+      permissions: { I01: true, I02: false, I03: false, I04: false, I05: false },
+      contact: { email: "a@example.com" },
+    });
+
+    expect(calls.length).toBe(1);
+    expect(calls[0].fn).toBe("submit_consent");
+    expect((calls[0].args.p_permissions as Record<string, boolean>).I01).toBe(true);
+    expect(calls[0].args.p_session_id).toBe("50000000-0000-0000-0000-000000000001");
+    expect(calls[0].args.p_email).toBe("a@example.com");
+    expect(calls[0].args.p_token_hash).toMatch(/^[0-9a-f]{64}$/);
+    expect(result.receiptToken).toMatch(/^[0-9a-f]{64}$/);
+    // The raw token is returned once; only its hash is sent to the RPC.
+    expect(result.receiptToken).not.toBe(calls[0].args.p_token_hash);
+    expect(result.grantedChannels).toEqual(["email"]);
+    expect(result.receiptId).toBe("40000000-0000-0000-0000-000000000001");
+    expect(result.expiresAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+  });
+
+  it("handles created:false idempotently", async () => {
+    const fakeClient = {
+      rpc: async () => ({
+        data: {
+          created: false,
+          receipt_id: "40000000-0000-0000-0000-000000000009",
+          person_id: null,
+          granted_channels: [],
+        },
+        error: null,
+      }),
+    } as never;
+
+    const result = await submitConsent(fakeClient, {
+      sessionId: "50000000-0000-0000-0000-000000000001",
+      permissions: { I01: false, I02: false, I03: false, I04: false, I05: false },
+    });
+    expect(result.ok).toBe(true);
+    expect(result.receiptId).toBe("40000000-0000-0000-0000-000000000009");
+  });
+
+  it("surfaces rpc errors", async () => {
+    const fakeClient = {
+      rpc: async () => ({ data: null, error: { message: "boom" } }),
+    } as never;
+    await expect(
+      submitConsent(fakeClient, {
+        sessionId: "50000000-0000-0000-0000-000000000001",
+        permissions: { I01: false, I02: false, I03: false, I04: false, I05: false },
+      }),
+    ).rejects.toThrow(/Failed to record consent/);
   });
 });

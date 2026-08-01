@@ -12,6 +12,8 @@ import { randomBytes } from "node:crypto";
 import {
   SURVEY_V1,
   SURVEY_V1_HASH,
+  baseQuestionId,
+  repeatTopic,
   terminalStop,
   validateAnswers,
   visibleQuestionIds,
@@ -101,6 +103,42 @@ export function validateAnonymousSubmission(answers: AnswerMap): Record<string, 
   return validated;
 }
 
+/** One row for the survey_answers insert. */
+export interface AnswerRow {
+  session_id: string;
+  question_id: string;
+  repeat_key: string;
+  answer_value: string | string[];
+}
+
+/**
+ * Build survey_answers insert rows from validated answers.
+ *
+ * Repeat-instance composite keys ("E01#Housing or homelessness") resolve to
+ * the base question id for the question lookup and carry the topic in the
+ * repeat_key column; plain keys get an empty repeat_key. Keys that do not
+ * resolve in qidByKey are skipped (defensive: contract and DB must agree).
+ */
+export function buildAnswerRows(
+  validated: Record<string, string | string[]>,
+  qidByKey: Map<string, string>,
+  sessionId: string,
+): AnswerRow[] {
+  const rows: AnswerRow[] = [];
+  for (const [id, value] of Object.entries(validated)) {
+    if (NON_ANONYMOUS_IDS.has(id)) continue;
+    const questionId = qidByKey.get(baseQuestionId(id));
+    if (!questionId) continue;
+    rows.push({
+      session_id: sessionId,
+      question_id: questionId,
+      repeat_key: repeatTopic(id) ?? "",
+      answer_value: Array.isArray(value) ? value : value,
+    });
+  }
+  return rows;
+}
+
 /** Format a short, answer-free completion reference (reveals no answers). */
 function makeCompletionRef(): string {
   const rand = randomBytes(4).toString("hex");
@@ -179,14 +217,7 @@ export async function submitAnonymousSurvey(
   }
 
   const sessionId = session.id as string;
-  const rows = Object.entries(validated)
-    .filter(([id]) => !NON_ANONYMOUS_IDS.has(id))
-    .map(([id, value]) => ({
-      session_id: sessionId,
-      question_id: qidByKey.get(id),
-      answer_value: Array.isArray(value) ? value : value,
-    }))
-    .filter((r) => r.question_id);
+  const rows = buildAnswerRows(validated, qidByKey, sessionId);
 
   if (rows.length > 0) {
     const { error: aErr } = await client.from("survey_answers").insert(rows);
