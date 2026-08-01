@@ -6,7 +6,7 @@
  * a material change creates a reviewed successor version with a new hash.
  */
 
-import type { SurveyDefinition } from "./types.js";
+import type { SurveyDefinition } from "./types.ts";
 
 export const SURVEY_V1: SurveyDefinition = {
   schemaVersion: "1.0.0",

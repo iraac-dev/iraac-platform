@@ -10,11 +10,11 @@
  */
 
 import { createHash } from "node:crypto";
-import { SURVEY_V1 } from "./definition.js";
-import type { SurveyDefinition } from "./types.js";
+import { SURVEY_V1 } from "./definition.ts";
+import type { SurveyDefinition } from "./types.ts";
 
 /** Deep-sort object keys so serialization is order-independent. */
-function canonicalize(value: unknown): unknown {
+export function canonicalize(value: unknown): unknown {
   if (Array.isArray(value)) {
     return value.map(canonicalize);
   }

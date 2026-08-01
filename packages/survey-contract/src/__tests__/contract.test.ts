@@ -20,8 +20,8 @@ import {
   validateAnswer,
   validateAnswers,
   visibleQuestionIds,
-} from "../index.js";
-import type { SurveyDefinition } from "../types.js";
+} from "../index.ts";
+import type { SurveyDefinition } from "../types.ts";
 
 const ALL_QUESTIONS = SURVEY_V1.sections.flatMap((s) => s.questions);
 
