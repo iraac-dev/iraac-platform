@@ -6,8 +6,8 @@
  * consume this package; SurveyJS renders but never owns the authority.
  */
 
-export { SURVEY_V1 } from "./definition.js";
-export { SURVEY_V1_HASH, contentHash, isV1Release } from "./hash.js";
+export { SURVEY_V1 } from "./definition.ts";
+export { SURVEY_V1_HASH, canonicalize, contentHash, isV1Release } from "./hash.ts";
 export {
   answerSchema,
   hasPreferNotToSay,
@@ -16,7 +16,7 @@ export {
   validateAnswer,
   validateAnswers,
   validatePermission,
-} from "./validators.js";
+} from "./validators.ts";
 export {
   branchDecision,
   evaluateCondition,
@@ -25,7 +25,7 @@ export {
   nextQuestionId,
   terminalStop,
   visibleQuestionIds,
-} from "./branching.js";
+} from "./branching.ts";
 export {
   ALL_FIXTURES,
   FIXTURE_ANONYMOUS_FULL,
@@ -34,5 +34,5 @@ export {
   FIXTURE_NO_CONSENT,
   FIXTURE_SKIP_PERSONAL,
   FIXTURE_WITH_FOLLOWUP,
-} from "./fixtures.js";
-export * from "./types.js";
+} from "./fixtures.ts";
+export * from "./types.ts";

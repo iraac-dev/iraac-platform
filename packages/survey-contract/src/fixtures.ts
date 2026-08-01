@@ -7,7 +7,7 @@
  * fixture (conformance requirement).
  */
 
-import type { AnswerMap } from "./types.js";
+import type { AnswerMap } from "./types.ts";
 
 /** Minimal valid adult start: A01 yes, A02 safe. Everything else skipped. */
 export const FIXTURE_ANONYMOUS_MINIMAL: AnswerMap = {

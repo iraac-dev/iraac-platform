@@ -1,20 +1,10 @@
 -- Seed: SYNTHETIC DATA ONLY. No real community data ever enters this repo.
 -- Used for local development and CI database tests.
 
-insert into public.survey_definitions (id, slug, title) values
-  ('00000000-0000-0000-0000-000000000001', 'have-your-say', 'Have Your Say — V1');
-
-insert into public.survey_versions (id, survey_id, version, definition, content_hash, status, released_at) values
-  ('00000000-0000-0000-0000-000000000002',
-   '00000000-0000-0000-0000-000000000001',
-   1,
-   '{"title": "Have Your Say", "questions": [{"key": "concern", "text": "What is the most important issue right now?", "type": "single_choice"}]}',
-   'synthetic-hash-v1',
-   'active',
-   now());
-
-insert into public.survey_questions (id, survey_id, question_key, question_text, question_type, required) values
-  ('00000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000001', 'concern', 'What is the most important issue right now?', 'single_choice', true);
+-- NOTE: the real Have Your Say V1 release (definition, version, questions)
+-- is inserted by migration 20260801000600_survey_v1_release.sql from the
+-- approved contract. The seed intentionally does NOT add survey rows, so the
+-- migration's canonical release is the only one present locally.
 
 insert into public.consent_wording_versions (id, version, wording, channel) values
   ('00000000-0000-0000-0000-000000000004', 1, 'Synthetic: IRAAC may email me a monthly newsletter.', 'newsletter');

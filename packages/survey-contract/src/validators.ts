@@ -6,8 +6,8 @@
  */
 
 import { z } from "zod";
-import { SURVEY_V1 } from "./definition.js";
-import type { AnswerMap, ContactPermission, SurveyQuestion, ValidAnswerMap } from "./types.js";
+import { SURVEY_V1 } from "./definition.ts";
+import type { AnswerMap, ContactPermission, SurveyQuestion, ValidAnswerMap } from "./types.ts";
 
 export const questionIndex: Map<string, SurveyQuestion> = new Map(
   SURVEY_V1.sections.flatMap((s) => s.questions.map((q) => [q.id, q] as const)),

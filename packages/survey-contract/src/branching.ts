@@ -4,9 +4,9 @@
  * same answer history reaches the same next question in every mode.
  */
 
-import { SURVEY_V1 } from "./definition.js";
-import { questionIndex } from "./validators.js";
-import type { AnswerMap, BranchCondition, BranchDecision, SurveyQuestion } from "./types.js";
+import { SURVEY_V1 } from "./definition.ts";
+import { questionIndex } from "./validators.ts";
+import type { AnswerMap, BranchCondition, BranchDecision, SurveyQuestion } from "./types.ts";
 
 function getValue(answers: AnswerMap, questionId: string): string | string[] | undefined {
   const v = answers[questionId];
