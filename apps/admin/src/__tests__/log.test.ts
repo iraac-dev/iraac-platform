@@ -27,7 +27,7 @@ describe("logger (OPS-001 no-PII rule)", () => {
     const spy = vi.spyOn(console, "log").mockImplementation(() => {});
     logger.info("batch", {
       items: [{ name: "Test Person", mobile: "0400000000" }],
-      meta: { token: "secret-token", count: 2 },
+      meta: { token: "tok123", count: 2 },
     });
     const parsed = JSON.parse(spy.mock.calls[0][0] as string);
     expect(parsed.items[0].name).toBe("[REDACTED]");
