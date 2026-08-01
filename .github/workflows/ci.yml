@@ -16,13 +16,9 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run lint
-        working-directory: apps/admin
-      - run: npx tsc --noEmit
-        working-directory: apps/admin
-      - run: npx vitest run
-        working-directory: apps/admin
+      - run: npm run typecheck
+      - run: npm run test
       - run: npm run build
-        working-directory: apps/admin
   secrets:
     runs-on: ubuntu-latest
     steps:

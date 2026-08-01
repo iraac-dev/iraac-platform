@@ -1,0 +1,29 @@
+{
+  "name": "@iraac/survey-contract",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "IRAAC Have Your Say V1 canonical survey contract: immutable definition, Zod validators, branching rules, fixtures, semantic hash.",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9",
+    "@types/node": "^20",
+    "eslint": "^9",
+    "typescript": "^5",
+    "typescript-eslint": "^8",
+    "vitest": "^4.1.10"
+  }
+}

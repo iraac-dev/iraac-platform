@@ -8,9 +8,9 @@
     "workers/*"
   ],
   "scripts": {
-    "lint": "npm run lint --workspace=@iraac/admin",
-    "typecheck": "npm run typecheck --workspace=@iraac/admin",
-    "test": "npm run test --workspace=@iraac/admin",
+    "lint": "npm run lint --workspace=@iraac/admin && npm run lint --workspace=@iraac/survey-contract",
+    "typecheck": "npm run typecheck --workspace=@iraac/admin && npm run typecheck --workspace=@iraac/survey-contract",
+    "test": "npm run test --workspace=@iraac/admin && npm run test --workspace=@iraac/survey-contract",
     "build": "npm run build --workspace=@iraac/admin"
   }
 }
