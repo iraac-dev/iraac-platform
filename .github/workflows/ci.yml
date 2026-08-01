@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+        working-directory: apps/admin
+      - run: npx tsc --noEmit
+        working-directory: apps/admin
+      - run: npx vitest run
+        working-directory: apps/admin
+      - run: npm run build
+        working-directory: apps/admin
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Secret scan
+        run: |
+          if grep -rInE "(api[_-]?key|secret|token|password)\s*[:=]\s*['\"][A-Za-z0-9_\-]{12,}" --include="*.ts" --include="*.js" --include="*.json" --include="*.md" --include="*.env*" . | grep -v node_modules | grep -v ".example"; then
+            echo "Possible secret found in source files"
+            exit 1
+          fi
+          echo "No obvious secrets found"

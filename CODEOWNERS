@@ -1,0 +1,4 @@
+# Repository owners. At least two named human owners required for
+# production platforms. Agents never appear as sole owners of sensitive paths.
+
+* @rhy-collab

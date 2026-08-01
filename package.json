@@ -1,0 +1,16 @@
+{
+  "name": "iraac-platform",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "workers/*"
+  ],
+  "scripts": {
+    "lint": "npm run lint --workspace=@iraac/admin",
+    "typecheck": "npm run typecheck --workspace=@iraac/admin",
+    "test": "npm run test --workspace=@iraac/admin",
+    "build": "npm run build --workspace=@iraac/admin"
+  }
+}
