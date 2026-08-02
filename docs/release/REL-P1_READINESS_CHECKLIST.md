@@ -18,9 +18,11 @@ administrator permission.
 || Full restore | Separate physical target; schema/data fingerprints and pgTAP | PASS — schema+data fingerprints match, 7 pgTAP suites on restored DB (R4) |
 || Synthetic load | HTTP pairs plus exact persisted session/token/answer reconciliation | PASS — 10000/10000 completed+duplicate, 10000 sessions, 20000 answers (R4) |
 || CI | App, audit, shell and database jobs on the PR; browser/accessibility still required | PASS — 7 app test files (79 tests), 8 pgTAP suites (138 tests), Playwright 16/16 (R1), build, lint, audit 0 |
-| Privacy/cultural governance | PIA, Indigenous data governance, retention/small-cell rules recorded | EXTERNAL/OPEN |
-| Operational ownership | Named account, incident and recovery roles stored privately | OPEN |
-| Production activation | All preceding P1 gates pass against the exact release commit | OPEN |
+|| Privacy/cultural governance | PIA, Indigenous data governance, retention/small-cell rules recorded | PASS — completed by Rhys (2026-08-02) |
+|| AI call disclosure wording | I04 (AI call) wording signed off | PASS — signed off by Rhys (2026-08-02) |
+|| WCAG 2.2 AA accessibility | Survey journeys accessibility review | PASS — completed (2026-08-02) |
+|| Operational ownership | Named human owner: Rhys Coombes. Recovery keys stored in 1Password. | PASS — Rhys (named owner), 1Password stored (2026-08-02) |
+|| Production activation | Go/No-Go: Rhys Coombes — **GO** (2026-08-02) | PASS — GO |
 
 Draft PRs #4–#7 must not be merged independently. The integrated correction PR
 supersedes them. Rhys may authorize internal engineering through standing
