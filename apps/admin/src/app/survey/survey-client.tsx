@@ -5,7 +5,9 @@ import Link from "next/link";
 import {
   SURVEY_V1_HASH,
   getQuestion,
+  isRepeatInstanceId,
   nextQuestionId,
+  repeatTopic,
   terminalStop,
   visibleQuestionIds,
 } from "@iraac/survey-contract";
@@ -14,7 +16,14 @@ import type { AnswerMap, AnswerValue, SurveyQuestion } from "@iraac/survey-contr
 type SubmitState =
   | { phase: "idle" }
   | { phase: "submitting" }
-  | { phase: "done"; completionRef: string }
+  | { phase: "done"; completionRef: string; sessionId?: string }
+  | { phase: "error"; message: string };
+
+type ConsentState =
+  | { phase: "idle" }
+  | { phase: "submitting" }
+  | { phase: "done"; receiptToken: string; grantedChannels: string[] }
+  | { phase: "skipped" }
   | { phase: "error"; message: string };
 
 /** Map a validated answer back to the compact shape the contract expects. */
@@ -22,17 +31,42 @@ function toAnswerMap(answers: Record<string, string | string[] | null>): AnswerM
   return answers as AnswerMap;
 }
 
+function createClientToken(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (character) => {
+    const random = Math.floor(Math.random() * 16);
+    const value = character === "x" ? random : (random & 0x3) | 0x8;
+    return value.toString(16);
+  });
+}
+
+/** Slugify any question key for use in an id attribute ("E01#Housing or homelessness" -> "e01-housing-or-homelessness"). */
+function slugifyId(id: string): string {
+  return id.replace(/[^a-z0-9]+/gi, "-").toLowerCase();
+}
+
 /** Renders one question with accessible controls; no third-party anything. */
 function QuestionField({
   question,
   value,
   onChange,
+  instanceId,
 }: {
   question: SurveyQuestion;
   value: AnswerValue;
   onChange: (v: AnswerValue) => void;
+  /**
+   * Display key for this instance. For repeat questions this is the composite
+   * id (e.g. "E01#Housing or homelessness") so element ids stay unique and
+   * answers are stored under the composite key; plain questions pass undefined
+   * and fall back to the base question id.
+   */
+  instanceId?: string;
 }) {
-  const id = `q-${question.id}`;
+  const key = instanceId ?? question.id;
+  const id = `q-${slugifyId(key)}`;
+  // The repeat topic (e.g. "Housing or homelessness") this instance is about.
+  const topic = instanceId ? repeatTopic(instanceId) : null;
   const options = question.options ?? [];
   const required = question.required && !question.optional;
 
@@ -40,6 +74,7 @@ function QuestionField({
     return (
       <div className="field">
         <label htmlFor={id}>
+          {topic && <strong className="repeat-topic">{topic}</strong>}
           {question.text}
           {required && <span className="req" aria-label="required"> *</span>}
         </label>
@@ -49,6 +84,7 @@ function QuestionField({
           maxLength={question.maxLength ?? 500}
           value={typeof value === "string" ? value : ""}
           onChange={(e) => onChange(e.target.value)}
+          required={required}
           aria-describedby={`${id}-hint`}
         />
         <p id={`${id}-hint`} className="hint">
@@ -63,8 +99,9 @@ function QuestionField({
   const current = Array.isArray(value) ? value : [];
 
   return (
-    <fieldset className="field">
-      <legend>
+    <fieldset className="field" aria-labelledby={topic ? `${id}-legend` : undefined}>
+      <legend id={topic ? `${id}-legend` : undefined}>
+        {topic && <strong className="repeat-topic">{topic}</strong>}
         {question.text}
         {required && <span className="req" aria-label="required"> *</span>}
       </legend>
@@ -81,6 +118,7 @@ function QuestionField({
                 name={multi ? undefined : id}
                 value={opt}
                 checked={checked}
+                required={required && !multi}
                 onChange={() => {
                   if (multi) {
                     const next = checked ? current.filter((x) => x !== opt) : [...current, opt];
@@ -115,11 +153,10 @@ export default function SurveyClient() {
   const [currentId, setCurrentId] = useState<string>(startId);
   const [answers, setAnswers] = useState<Record<string, string | string[] | null>>({});
   const [submitState, setSubmitState] = useState<SubmitState>({ phase: "idle" });
-  const [clientToken] = useState<string>(() =>
-    typeof crypto !== "undefined" && "randomUUID" in crypto
-      ? crypto.randomUUID()
-      : `tok-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-  );
+  const [consentState, setConsentState] = useState<ConsentState>({ phase: "idle" });
+  const [contactForm, setContactForm] = useState({ name: "", email: "", mobile: "" });
+  const [permissions, setPermissions] = useState<Record<string, boolean>>({ I01: false, I02: false, I03: false, I04: false });
+  const [clientToken] = useState<string>(createClientToken);
 
   const current = getQuestion(currentId);
   const stop = terminalStop(toAnswerMap(answers));
@@ -155,23 +192,58 @@ export default function SurveyClient() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ answers: toAnswerMap(answers), clientToken, completionMode: "web" }),
       });
-      const data = (await res.json()) as { ok: boolean; completionRef?: string; reason?: string; status?: string };
+      const data = (await res.json()) as { ok: boolean; completionRef?: string; sessionId?: string; reason?: string; status?: string };
       if (!res.ok || !data.ok) {
         setSubmitState({ phase: "error", message: data.reason ?? "Submission failed. Please try again." });
         return;
       }
-      setSubmitState({ phase: "done", completionRef: data.completionRef ?? "" });
+      setSubmitState({ phase: "done", completionRef: data.completionRef ?? "", sessionId: data.sessionId });
     } catch {
       setSubmitState({ phase: "error", message: "Network error. Please check your connection and try again." });
     }
   }, [answers, clientToken]);
+
+  // CONS-001: optional consent step, only when the person asked for follow-up.
+  const handleConsentSubmit = useCallback(async () => {
+    if (submitState.phase !== "done" || !submitState.sessionId) return;
+    setConsentState({ phase: "submitting" });
+    try {
+      const res = await fetch("/api/consent/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId: submitState.sessionId,
+          contact: {
+            name: contactForm.name.trim() || undefined,
+            email: contactForm.email.trim() || undefined,
+            mobile: contactForm.mobile.trim() || undefined,
+          },
+          permissions,
+        }),
+      });
+      const data = (await res.json()) as { ok: boolean; receiptToken?: string; grantedChannels?: string[]; reason?: string };
+      if (!res.ok || !data.ok) {
+        setConsentState({ phase: "error", message: data.reason ?? "We could not record your preferences. Please try again." });
+        return;
+      }
+      setConsentState({ phase: "done", receiptToken: data.receiptToken ?? "", grantedChannels: data.grantedChannels ?? [] });
+    } catch {
+      setConsentState({ phase: "error", message: "Network error. Please check your connection and try again." });
+    }
+  }, [submitState, contactForm, permissions]);
 
   // Terminal stop from A02: show the human pathway, never the survey.
   if (stop.stop) {
     return (
       <section className="survey-end" aria-live="polite">
         <h2>We have stopped the questions</h2>
-        <p>{stop.reason === "A02: immediate help pathway" ? "You asked for immediate help." : "You asked to speak with a person."}</p>
+        <p>
+          {stop.reason === "A02: immediate help pathway"
+            ? "You asked for immediate help."
+            : stop.reason === "A02: human pathway"
+              ? "You asked to speak with a person."
+              : "You chose not to continue with this survey."}
+        </p>
         <p>You can speak with an IRAAC worker instead of continuing. If you or someone else is in immediate danger, call 000. For culturally safe crisis support, call 13YARN on 13 92 76.</p>
         <p>
           <a href="tel:139276" className="btn">Call 13YARN (13 92 76)</a>{" "}
@@ -182,6 +254,93 @@ export default function SurveyClient() {
   }
 
   if (submitState.phase === "done") {
+    const askedFollowUp = answers.H01 === "Yes, please contact me";
+    const showConsentStep = askedFollowUp && consentState.phase !== "skipped" && consentState.phase !== "done";
+
+    if (consentState.phase === "done") {
+      return (
+        <section className="survey-end" aria-live="polite">
+          <h2>Preferences saved</h2>
+          <p>Thank you — your contact preferences are recorded. Keep this receipt reference safe: it is the only way to change or withdraw your choices without logging in.</p>
+          <p className="completion-ref">
+            Receipt: <strong>{consentState.receiptToken}</strong>
+          </p>
+          <p>
+            To withdraw or change what IRAAC may contact you about later, use{" "}
+            <Link href="/survey/withdraw" rel="nofollow">the withdrawal page</Link> with this receipt. It expires automatically.
+          </p>
+          <p><a href="/contact" rel="nofollow">Contact IRAAC</a></p>
+        </section>
+      );
+    }
+
+    if (showConsentStep) {
+      return (
+        <section className="survey-end" aria-live="polite">
+          <h2>Follow-up and preferences</h2>
+          <p>You asked IRAAC to follow up about what you shared. This step is optional — you can finish here and IRAAC will still receive your answers anonymously.</p>
+          <form
+            className="consent-form"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void handleConsentSubmit();
+            }}
+          >
+            <div className="field">
+              <label htmlFor="cons-name">Name (optional)</label>
+              <input id="cons-name" type="text" maxLength={120} value={contactForm.name} onChange={(e) => setContactForm((f) => ({ ...f, name: e.target.value }))} />
+            </div>
+            <div className="field">
+              <label htmlFor="cons-email">Email (optional)</label>
+              <input id="cons-email" type="email" maxLength={200} value={contactForm.email} onChange={(e) => setContactForm((f) => ({ ...f, email: e.target.value }))} />
+            </div>
+            <div className="field">
+              <label htmlFor="cons-mobile">Mobile (optional)</label>
+              <input id="cons-mobile" type="tel" maxLength={30} value={contactForm.mobile} onChange={(e) => setContactForm((f) => ({ ...f, mobile: e.target.value }))} />
+            </div>
+
+            <fieldset className="field">
+              <legend>What may IRAAC contact you about? Nothing is selected unless you tick it.</legend>
+              <label className="option">
+                <input type="checkbox" checked={permissions.I01} onChange={() => setPermissions((p) => ({ ...p, I01: !p.I01 }))} />
+                <span>Email me IRAAC newsletters and invitations to future surveys.</span>
+              </label>
+              <label className="option">
+                <input type="checkbox" checked={permissions.I02} onChange={() => setPermissions((p) => ({ ...p, I02: !p.I02 }))} />
+                <span>Send me SMS invitations to future surveys. Reply STOP at any time.</span>
+              </label>
+              <label className="option">
+                <input type="checkbox" checked={permissions.I03} onChange={() => setPermissions((p) => ({ ...p, I03: !p.I03 }))} />
+                <span>An IRAAC worker may call me about future surveys.</span>
+              </label>
+              <label className="option">
+                <input type="checkbox" checked={permissions.I04} onChange={() => setPermissions((p) => ({ ...p, I04: !p.I04 }))} />
+                <span>An IRAAC AI assistant may call me about future surveys. The call will identify itself as AI and I can ask for a person or end the call.</span>
+              </label>
+              <p className="hint">
+                Recording is not authorised here. If a future call proposes recording or retaining a transcript, IRAAC must ask separately during that call.
+              </p>
+            </fieldset>
+
+            <div className="nav">
+              <button type="button" className="btn btn-secondary" onClick={() => setConsentState({ phase: "skipped" })}>
+                Skip this step
+              </button>
+              <button type="submit" className="btn" disabled={consentState.phase === "submitting"}>
+                {consentState.phase === "submitting" ? "Saving…" : "Save preferences"}
+              </button>
+            </div>
+            {consentState.phase === "error" && (
+              <p role="alert" className="error">{consentState.message}</p>
+            )}
+          </form>
+          <p className="quick-exit">
+            <Link href="/" rel="nofollow">Quick exit</Link> — this closes the survey. It cannot clear your browser or network history.
+          </p>
+        </section>
+      );
+    }
+
     return (
       <section className="survey-end" aria-live="polite">
         <h2>Thank you for sharing</h2>
@@ -214,7 +373,8 @@ export default function SurveyClient() {
 
       <QuestionField
         question={current}
-        value={answers[current.id] ?? (current.type === "multi_choice" ? [] : null)}
+        instanceId={isRepeatInstanceId(currentId) ? currentId : undefined}
+        value={answers[currentId] ?? (current.type === "multi_choice" ? [] : null)}
         onChange={setAnswer}
       />
 

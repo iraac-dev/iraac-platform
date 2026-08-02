@@ -47,3 +47,371 @@ a {
     color-scheme: dark;
   }
 }
+
+/* ============================================================
+   Survey — mobile-first, accessible, no third-party anything.
+   Shared by /survey (Have Your Say) and /survey/withdraw.
+   ============================================================ */
+.survey-page {
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 1.25rem 1rem 4rem;
+  line-height: 1.55;
+}
+
+.survey-header {
+  margin-bottom: 1.75rem;
+}
+
+.survey-kicker {
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.75;
+  margin-bottom: 0.4rem;
+}
+
+.survey-header h1 {
+  font-size: 1.7rem;
+  line-height: 1.2;
+  margin-bottom: 0.75rem;
+}
+
+.survey-intro p {
+  margin-bottom: 0.75rem;
+}
+
+.survey-notice {
+  background: color-mix(in srgb, var(--foreground) 6%, transparent);
+  border-left: 4px solid var(--foreground);
+  padding: 0.9rem 1rem;
+  margin: 1rem 0;
+  font-size: 0.92rem;
+  border-radius: 4px;
+}
+
+.survey-notice ul {
+  margin: 0.6rem 0 0 1.1rem;
+}
+
+.survey-notice li {
+  margin-bottom: 0.3rem;
+}
+
+.survey-notice a,
+.survey-end a,
+.survey-form a,
+.consent-form a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.survey-hash {
+  font-size: 0.75rem;
+  opacity: 0.5;
+  margin-top: 0.75rem;
+}
+
+.survey-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.progress {
+  font-size: 0.85rem;
+  opacity: 0.8;
+  margin-bottom: 0.25rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.field legend {
+  font-weight: 600;
+  margin-bottom: 0.45rem;
+}
+
+.field label[for] {
+  font-weight: 600;
+}
+
+.req {
+  color: #b3261e;
+  font-weight: 700;
+}
+
+.options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.option {
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid color-mix(in srgb, var(--foreground) 25%, transparent);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.98rem;
+  line-height: 1.4;
+}
+
+.option input {
+  margin-top: 0.2rem;
+  width: 1.15rem;
+  height: 1.15rem;
+  flex-shrink: 0;
+  accent-color: var(--foreground);
+}
+
+.hint {
+  font-size: 0.85rem;
+  opacity: 0.75;
+}
+
+.field textarea,
+.field input[type="text"],
+.field input[type="email"],
+.field input[type="tel"],
+.field input[type="password"],
+.field select {
+  width: 100%;
+  padding: 0.7rem 0.8rem;
+  font: inherit;
+  border: 1px solid color-mix(in srgb, var(--foreground) 35%, transparent);
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+}
+
+.field textarea {
+  resize: vertical;
+  min-height: 4.5rem;
+}
+
+:focus-visible {
+  outline: 3px solid #b3261e;
+  outline-offset: 2px;
+}
+
+.nav {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.btn {
+  display: inline-block;
+  padding: 0.8rem 1.4rem;
+  font: inherit;
+  font-weight: 600;
+  color: #ffffff;
+  background: #b3261e;
+  border: 1px solid #b3261e;
+  border-radius: 8px;
+  cursor: pointer;
+  text-decoration: none !important;
+  text-align: center;
+  min-height: 3rem;
+}
+
+.btn:hover {
+  background: #8f1d16;
+  border-color: #8f1d16;
+}
+
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: transparent;
+  color: inherit;
+  border-color: color-mix(in srgb, var(--foreground) 45%, transparent);
+}
+
+.btn-secondary:hover {
+  background: color-mix(in srgb, var(--foreground) 8%, transparent);
+  border-color: inherit;
+}
+
+.error {
+  color: #b3261e;
+  font-weight: 600;
+  background: color-mix(in srgb, #b3261e 8%, transparent);
+  padding: 0.7rem 0.9rem;
+  border-radius: 8px;
+}
+
+.survey-end {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding-top: 1.5rem;
+}
+
+.survey-end h1,
+.survey-end h2 {
+  font-size: 1.4rem;
+  line-height: 1.25;
+}
+
+.completion-ref {
+  background: color-mix(in srgb, var(--foreground) 6%, transparent);
+  padding: 0.9rem 1rem;
+  border-radius: 8px;
+  font-size: 0.92rem;
+  word-break: break-all;
+}
+
+.consent-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  margin-top: 0.5rem;
+}
+
+.quick-exit {
+  margin-top: 1.75rem;
+  font-size: 0.85rem;
+  opacity: 0.8;
+}
+
+.survey-noscript {
+  margin-top: 2rem;
+  padding: 1rem;
+  border: 1px dashed color-mix(in srgb, var(--foreground) 40%, transparent);
+  border-radius: 8px;
+  font-size: 0.92rem;
+}
+
+/* ============================================================
+   Admin dashboard — staff area (ADMIN-001)
+   ============================================================ */
+.admin-page {
+  max-width: 60rem;
+  margin: 0 auto;
+  padding: 1.25rem 1rem 4rem;
+  line-height: 1.55;
+}
+
+.admin-header {
+  border-bottom: 1px solid color-mix(in srgb, var(--foreground) 15%, transparent);
+  padding-bottom: 0.9rem;
+  margin-bottom: 1.5rem;
+}
+
+.admin-nav {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin: 0.75rem 0;
+}
+
+.admin-nav a {
+  padding: 0.35rem 0.7rem;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+.admin-nav a:hover {
+  background: color-mix(in srgb, var(--foreground) 8%, transparent);
+}
+
+.admin-session {
+  font-size: 0.85rem;
+  opacity: 0.8;
+}
+
+.inline-form {
+  display: inline;
+}
+
+.btn-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.admin-content h2 {
+  font-size: 1.4rem;
+  margin-bottom: 0.5rem;
+}
+
+.admin-content h3 {
+  font-size: 1.1rem;
+  margin: 1.25rem 0 0.4rem;
+}
+
+.admin-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 0.75rem;
+  margin: 1rem 0 1.5rem;
+}
+
+.admin-card {
+  border: 1px solid color-mix(in srgb, var(--foreground) 20%, transparent);
+  border-radius: 10px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.admin-card strong {
+  font-size: 1.6rem;
+}
+
+.admin-card span {
+  font-size: 0.85rem;
+  opacity: 0.75;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.75rem 0 1.25rem;
+  font-size: 0.92rem;
+}
+
+.admin-table th,
+.admin-table td {
+  text-align: left;
+  padding: 0.55rem 0.6rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--foreground) 12%, transparent);
+  vertical-align: top;
+}
+
+.admin-table th {
+  font-weight: 600;
+  opacity: 0.8;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.admin-person {
+  border: 1px solid color-mix(in srgb, var(--foreground) 15%, transparent);
+  border-radius: 10px;
+  padding: 0.9rem 1rem;
+  margin-bottom: 1rem;
+}

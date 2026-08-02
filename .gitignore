@@ -12,3 +12,7 @@ dist/
 
 # Local secrets wrapper (reads ~/.supabase-* secret files)
 supabase-cli.sh
+
+# Playwright artifacts
+apps/admin/test-results/
+apps/admin/playwright-report/

@@ -10,18 +10,21 @@ import { describe, expect, it } from "vitest";
 import {
   ALL_FIXTURES,
   FIXTURE_ANONYMOUS_FULL,
+  FIXTURE_ANONYMOUS_MINIMAL,
   SURVEY_V1,
   SURVEY_V1_HASH,
   branchDecision,
   contentHash,
+  getQuestion,
   isV1Release,
   nextQuestionId,
+  repeatKeys,
   terminalStop,
   validateAnswer,
   validateAnswers,
   visibleQuestionIds,
 } from "../index.ts";
-import type { SurveyDefinition } from "../types.ts";
+import type { AnswerMap, SurveyDefinition } from "../types.ts";
 
 const ALL_QUESTIONS = SURVEY_V1.sections.flatMap((s) => s.questions);
 
@@ -159,6 +162,49 @@ describe("SURV-001 validators", () => {
       expect(name.length).toBeGreaterThan(0);
     }
   });
+
+  it("accepts composite repeat keys and returns them under the same composite keys", () => {
+    const validated = validateAnswers(FIXTURE_ANONYMOUS_FULL);
+    expect(validated["E01#Housing or homelessness"]).toEqual(["Cost", "Waiting time"]);
+    expect(validated["E01#Work"]).toEqual(["Waiting time"]);
+    expect(validated["E02#Housing or homelessness"]).toBe("More affordable housing options and easier access to services.");
+    expect(validated["E02#Work"]).toBe("Work experience pathways would help.");
+    expect(validated["E03#Housing or homelessness"]).toBe("Yes but it did not help enough");
+    expect(validated["E03#Work"]).toBe("No");
+    // The flat base ids must not appear.
+    expect(validated.E01).toBeUndefined();
+    expect(validated.E02).toBeUndefined();
+    expect(validated.E03).toBeUndefined();
+  });
+
+  it("rejects a repeat instance whose topic is not a current source selection", () => {
+    const answers: AnswerMap = {
+      D03: ["Food"],
+      "E01#Housing or homelessness": ["Cost"],
+    };
+    expect(() => validateAnswers(answers)).toThrow(/invalid repeat instance/i);
+  });
+
+  it("rejects more repeat instances than repeatFor.max allows", () => {
+    // Four repeat instances for E01, one per topic; D03 is capped at three by
+    // maxSelections, so the instance-count guard must fire first.
+    const answers: AnswerMap = {
+      "E01#Housing or homelessness": ["Cost"],
+      "E01#Food": ["Cost"],
+      "E01#Work": ["Cost"],
+      "E01#Transport": ["Cost"],
+      D03: ["Housing or homelessness", "Food", "Work", "Transport"],
+    };
+    expect(() => validateAnswers(answers)).toThrow(/max 3/);
+  });
+
+  it("rejects composite keys on questions that are not repeat templates", () => {
+    const answers: AnswerMap = {
+      D03: ["Food"],
+      "B01#Food": "Dubbo",
+    };
+    expect(() => validateAnswers(answers)).toThrow(/unexpected repeat answer/i);
+  });
 });
 
 describe("SURV-001 branching engine", () => {
@@ -207,6 +253,62 @@ describe("SURV-001 branching engine", () => {
     const first = visibleQuestionIds(FIXTURE_ANONYMOUS_FULL);
     const second = visibleQuestionIds(FIXTURE_ANONYMOUS_FULL);
     expect(second).toEqual(first);
+  });
+
+  it("hides E01–E03 entirely when D03 has no selections", () => {
+    const minimalVisible = visibleQuestionIds(FIXTURE_ANONYMOUS_MINIMAL);
+    expect(minimalVisible).not.toContain("E01");
+    expect(minimalVisible).not.toContain("E02");
+    expect(minimalVisible).not.toContain("E03");
+    expect(minimalVisible.filter((id) => id.startsWith("E0"))).toEqual([]);
+
+    const noD03Visible = visibleQuestionIds({ A01: "Yes", A02: "Yes" });
+    expect(noD03Visible.filter((id) => id.startsWith("E0"))).toEqual([]);
+  });
+
+  it("expands E01–E03 to one composite id per D03 selection", () => {
+    const visible = visibleQuestionIds(FIXTURE_ANONYMOUS_FULL);
+    // Flat template ids never appear…
+    expect(visible).not.toContain("E01");
+    expect(visible).not.toContain("E02");
+    expect(visible).not.toContain("E03");
+    // …but one composite id per selected topic does, for every template.
+    for (const base of ["E01", "E02", "E03"]) {
+      expect(visible).toContain(`${base}#Housing or homelessness`);
+      expect(visible).toContain(`${base}#Work`);
+    }
+    // Definition order: all E01 instances, then all E02, then all E03.
+    const eIds = visible.filter((id) => id.startsWith("E0"));
+    expect(eIds).toEqual([
+      "E01#Housing or homelessness",
+      "E01#Work",
+      "E02#Housing or homelessness",
+      "E02#Work",
+      "E03#Housing or homelessness",
+      "E03#Work",
+    ]);
+  });
+
+  it("resolves composite repeat ids to the base question via getQuestion", () => {
+    expect(getQuestion("E01#Housing or homelessness")?.id).toBe("E01");
+    expect(getQuestion("E02#Work")?.id).toBe("E02");
+    expect(getQuestion("E03#Food")?.id).toBe("E03");
+    expect(getQuestion("B01")?.id).toBe("B01");
+  });
+
+  it("caps repeatKeys at repeatFor.max and dedupes in source order", () => {
+    const e01 = ALL_QUESTIONS.find((q) => q.id === "E01")!;
+    const keys = repeatKeys(e01, {
+      D03: ["Food", "Food", "Work", "Housing or homelessness", "Transport"],
+    });
+    // "Food" deduped, cap at 3 keeps the first three unique topics in order.
+    expect(keys).toEqual(["Food", "Work", "Housing or homelessness"]);
+
+    // Non-repeat questions and missing source selections yield no keys.
+    const a01 = ALL_QUESTIONS.find((q) => q.id === "A01")!;
+    expect(repeatKeys(a01, {})).toEqual([]);
+    expect(repeatKeys(e01, {})).toEqual([]);
+    expect(repeatKeys(e01, { D03: "Food" })).toEqual(["Food"]);
   });
 });
 

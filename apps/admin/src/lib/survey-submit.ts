@@ -5,6 +5,14 @@
  * from a Next.js server route, validates every answer against the frozen
  * @iraac/survey-contract contract, enforces the adult gate and branch
  * conformance, then writes one idempotent completion via the service role.
+ *
+ * R4: submission is gated by TWO independent interlocks — the release must
+ * be active with the canonical hash (authoring state) AND collection must
+ * not be paused (operational state, singleton collection_controls row read
+ * via is_collection_paused()). A pause throws "Survey release is not
+ * active: collection is paused", which the route's existing
+ * /release is not active/i mapping turns into a 503 without touching the
+ * route file.
  */
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
@@ -12,6 +20,8 @@ import { randomBytes } from "node:crypto";
 import {
   SURVEY_V1,
   SURVEY_V1_HASH,
+  baseQuestionId,
+  repeatTopic,
   terminalStop,
   validateAnswers,
   visibleQuestionIds,
@@ -37,6 +47,45 @@ const V1_VERSION_ID = "10000000-0000-0000-0000-000000000002";
 /** V1 survey definition UUID (survey_questions.survey_id references it). */
 const V1_DEFINITION_ID = "10000000-0000-0000-0000-000000000001";
 
+/**
+ * Collection interlock. A deployed route must not turn a draft or superseded
+ * contract into a live survey merely because it has the service-role key.
+ *
+ * R4: additionally fails closed on the operational pause — a live release
+ * can be paused for collection independently of its authoring status. The
+ * pause error deliberately reads "Survey release is not active: collection
+ * is paused" so the route's existing /release is not active/i mapping
+ * returns 503 without any route change.
+ */
+export async function assertSurveyReleaseActive(client: SupabaseClient): Promise<void> {
+  const { data: release, error } = await client
+    .from("survey_versions")
+    .select("status, content_hash")
+    .eq("id", V1_VERSION_ID)
+    .maybeSingle();
+
+  if (error || !release) {
+    throw new Error("Survey release is unavailable");
+  }
+  if (release.status !== "active") {
+    throw new Error("Survey release is not active");
+  }
+  if (release.content_hash !== SURVEY_V1_HASH) {
+    throw new Error("Survey release hash mismatch");
+  }
+
+  // Operational interlock: independent of authoring state. A pause check
+  // failure fails CLOSED (unavailable) — we must never accept responses
+  // when the pause state cannot be read.
+  const { data: paused, error: pauseErr } = await client.rpc("is_collection_paused");
+  if (pauseErr) {
+    throw new Error("Survey release is unavailable");
+  }
+  if (paused === true) {
+    throw new Error("Survey release is not active: collection is paused");
+  }
+}
+
 /** The question ids that are NOT part of the anonymous V1 journey (H = follow-up contact, I = permissions). */
 const NON_ANONYMOUS_IDS = new Set<string>([
   "H01", "H02", "H03", "H04", "H05", "H06",
@@ -60,6 +109,9 @@ export function validateAnonymousSubmission(answers: AnswerMap): Record<string, 
   if (answers.A01 !== "Yes") {
     throw new Error("Submission blocked: A01 must be Yes (adult gate)");
   }
+  if (answers.A02 !== "Yes" && answers.A02 !== "I would like to skip personal questions") {
+    throw new Error("Submission blocked: A02 safety choice is required");
+  }
 
   const visible = new Set(visibleQuestionIds(answers));
   // Strip non-anonymous (H/I) and branch-hidden answers before validating,
@@ -74,6 +126,42 @@ export function validateAnonymousSubmission(answers: AnswerMap): Record<string, 
 
   const validated = validateAnswers(cleaned);
   return validated;
+}
+
+/** One row for the survey_answers insert. */
+export interface AnswerRow {
+  session_id: string;
+  question_id: string;
+  repeat_key: string;
+  answer_value: string | string[];
+}
+
+/**
+ * Build survey_answers insert rows from validated answers.
+ *
+ * Repeat-instance composite keys ("E01#Housing or homelessness") resolve to
+ * the base question id for the question lookup and carry the topic in the
+ * repeat_key column; plain keys get an empty repeat_key. Keys that do not
+ * resolve in qidByKey are skipped (defensive: contract and DB must agree).
+ */
+export function buildAnswerRows(
+  validated: Record<string, string | string[]>,
+  qidByKey: Map<string, string>,
+  sessionId: string,
+): AnswerRow[] {
+  const rows: AnswerRow[] = [];
+  for (const [id, value] of Object.entries(validated)) {
+    if (NON_ANONYMOUS_IDS.has(id)) continue;
+    const questionId = qidByKey.get(baseQuestionId(id));
+    if (!questionId) continue;
+    rows.push({
+      session_id: sessionId,
+      question_id: questionId,
+      repeat_key: repeatTopic(id) ?? "",
+      answer_value: Array.isArray(value) ? value : value,
+    });
+  }
+  return rows;
 }
 
 /** Format a short, answer-free completion reference (reveals no answers). */
@@ -101,6 +189,7 @@ export async function submitAnonymousSurvey(
   input: SubmissionInput,
 ): Promise<SubmissionResult> {
   const validated = validateAnonymousSubmission(input.answers);
+  await assertSurveyReleaseActive(client);
 
   // Duplicate check first: same token already completed?
   const { data: existing } = await client
@@ -153,14 +242,7 @@ export async function submitAnonymousSurvey(
   }
 
   const sessionId = session.id as string;
-  const rows = Object.entries(validated)
-    .filter(([id]) => !NON_ANONYMOUS_IDS.has(id))
-    .map(([id, value]) => ({
-      session_id: sessionId,
-      question_id: qidByKey.get(id),
-      answer_value: Array.isArray(value) ? value : value,
-    }))
-    .filter((r) => r.question_id);
+  const rows = buildAnswerRows(validated, qidByKey, sessionId);
 
   if (rows.length > 0) {
     const { error: aErr } = await client.from("survey_answers").insert(rows);

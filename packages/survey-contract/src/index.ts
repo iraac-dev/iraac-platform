@@ -18,11 +18,17 @@ export {
   validatePermission,
 } from "./validators.ts";
 export {
+  REPEAT_SEPARATOR,
+  baseQuestionId,
   branchDecision,
   evaluateCondition,
   getQuestion,
   isQuestionSkipped,
+  isRepeatInstanceId,
   nextQuestionId,
+  repeatAnswerId,
+  repeatKeys,
+  repeatTopic,
   terminalStop,
   visibleQuestionIds,
 } from "./branching.ts";

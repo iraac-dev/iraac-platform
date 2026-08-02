@@ -10,7 +10,7 @@
 -- 20260801000600 (version 10000000-...-0002) to exercise the insert path.
 
 begin;
-select plan(18);
+select plan(20);
 
 -- pgTAP is a test-only dependency; install it here, not in a migration.
 create extension if not exists pgtap;
@@ -22,6 +22,18 @@ set search_path to public, extensions, "$user", pg_catalog;
 -- required for SET ROLE; this makes the tests work regardless of which
 -- database role the CI/local runner connects as.
 grant iraac_anon, iraac_authenticated, iraac_staff, iraac_auditor to current_user;
+
+select is(
+  has_table_privilege('anon', 'public.people', 'INSERT'),
+  false,
+  'standard anon REST role has no blanket people insert privilege'
+);
+
+select is(
+  has_table_privilege('authenticated', 'public.people', 'UPDATE'),
+  false,
+  'standard authenticated REST role has no blanket people update privilege'
+);
 
 -- V1 release id from the migration.
 \set v1_version '10000000-0000-0000-0000-000000000002'

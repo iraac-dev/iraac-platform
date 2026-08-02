@@ -14,6 +14,52 @@ function getValue(answers: AnswerMap, questionId: string): string | string[] | u
   return Array.isArray(v) ? v : [v];
 }
 
+/** Separator between a base question id and its repeat topic in composite keys. */
+export const REPEAT_SEPARATOR = "#";
+
+/** True when the id is a repeat-instance composite like "E01#Housing or homelessness". */
+export function isRepeatInstanceId(id: string): boolean {
+  return id.includes(REPEAT_SEPARATOR);
+}
+
+/** Base question id for any id (composite or plain): the part before the first separator. */
+export function baseQuestionId(id: string): string {
+  return id.split(REPEAT_SEPARATOR)[0];
+}
+
+/** The repeat topic after the first separator, or null when the id is not composite. */
+export function repeatTopic(id: string): string | null {
+  const index = id.indexOf(REPEAT_SEPARATOR);
+  return index === -1 ? null : id.slice(index + 1);
+}
+
+/** Build the composite answer key for one repeat instance. */
+export function repeatAnswerId(questionId: string, topic: string): string {
+  return `${questionId}${REPEAT_SEPARATOR}${topic}`;
+}
+
+/**
+ * Repeat topics for a repeatable question, derived from the source question's
+ * selections (question.repeatFor.questionId): source order preserved,
+ * non-strings filtered out, deduped, capped at question.repeatFor.max.
+ * Empty when the question is not a repeat template or has no selections.
+ */
+export function repeatKeys(question: SurveyQuestion, answers: AnswerMap): string[] {
+  if (!question.repeatFor) return [];
+  const source = answers[question.repeatFor.questionId];
+  const items: string[] = Array.isArray(source) ? source : typeof source === "string" ? [source] : [];
+  const seen = new Set<string>();
+  const keys: string[] = [];
+  for (const item of items) {
+    if (typeof item !== "string") continue;
+    if (seen.has(item)) continue;
+    seen.add(item);
+    keys.push(item);
+    if (keys.length >= question.repeatFor.max) break;
+  }
+  return keys;
+}
+
 /** Evaluate one condition against the current answer map. */
 export function evaluateCondition(condition: BranchCondition, answers: AnswerMap): boolean {
   switch (condition.kind) {
@@ -44,6 +90,9 @@ const A02_HELP_VALUE = "I need immediate help";
 
 /** Terminal stops from A02: questionnaire must stop and show the human path. */
 export function terminalStop(answers: AnswerMap): { stop: boolean; reason?: string } {
+  if (answers.A01 === "No" || answers.A01 === "Prefer not to say") {
+    return { stop: true, reason: "A01: adult gate not confirmed" };
+  }
   const a02 = answers.A02;
   if (typeof a02 !== "string") return { stop: false };
   if (a02 === A02_PERSON_VALUE) {
@@ -79,9 +128,20 @@ export function branchDecision(question: SurveyQuestion, answers: AnswerMap): Br
   return skipped ? { shown: false, reason: "skipped by branch rule" } : { shown: true };
 }
 
-/** Ordered list of question IDs currently reachable, in definition order. */
+/**
+ * Ordered list of question IDs currently reachable, in definition order.
+ * Repeat templates (question.repeatFor) expand to one composite id per source
+ * selection; with no source selections they disappear from the flow entirely.
+ */
 export function visibleQuestionIds(answers: AnswerMap): string[] {
-  return SURVEY_V1.sections.flatMap((s) => s.questions).filter((q) => branchDecision(q, answers).shown).map((q) => q.id);
+  return SURVEY_V1.sections.flatMap((s) => s.questions).flatMap((q) => {
+    if (q.repeatFor) {
+      const topics = repeatKeys(q, answers);
+      if (topics.length === 0) return [];
+      return topics.map((topic) => repeatAnswerId(q.id, topic));
+    }
+    return branchDecision(q, answers).shown ? [q.id] : [];
+  });
 }
 
 /**
@@ -98,7 +158,7 @@ export function nextQuestionId(answers: AnswerMap, questionId: string): string |
   return visible[idx + 1] ?? null;
 }
 
-/** Get the question object by stable ID. */
+/** Get the question object by stable ID (composite repeat ids resolve to the base question). */
 export function getQuestion(id: string): SurveyQuestion | undefined {
-  return questionIndex.get(id);
+  return questionIndex.get(baseQuestionId(id));
 }
