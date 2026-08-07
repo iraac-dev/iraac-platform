@@ -13,7 +13,8 @@ call-centre engine that asks whether the service actually worked.
 Core technology decisions:
 
 - Frontend/app: Next.js App Router, React, TypeScript, deployed on Vercel.
-- Community login: Clerk phone OTP, after privacy approval.
+- Community login: Supabase Auth phone OTP through Sinch MessageMedia, after
+  privacy and sender approval.
 - Data backbone: Supabase Postgres in Sydney, with RLS and append-only
   migrations.
 - Directory shape: Open Referral HSDS-inspired local schema.
@@ -22,8 +23,8 @@ Core technology decisions:
 - Location: suburb/postcode first; Mapbox later if needed.
 - Call centre: IRAAC-owned human operator console and manual phone logging
   first; Amazon Connect Sydney later only if call-centre volume justifies it.
-- SMS: Sinch MessageMedia or Twilio first, with AWS End User Messaging as the
-  AWS-aligned alternative.
+- SMS: Sinch MessageMedia, with AWS End User Messaging only as an emergency
+  alternative.
 - Email: Amazon SES for receipts, consent confirmations and internal notices.
 - Jobs/follow-up: Postgres outbox, Supabase Cron/Queues or a Sydney worker.
 - Reporting: locked Supabase snapshots and de-identified report views.
@@ -61,10 +62,10 @@ service detail pages, "not sure where to start", accessibility and safety UI.
 Do not build a map first. A list works earlier, safer and better on low-bandwidth
 phones.
 
-### Phase D — Clerk Community Login and Account
+### Phase D — Supabase Auth Community Login and Account
 
-Add Clerk phone OTP for community login after privacy review. Clerk identifies
-the person; Supabase controls the records. The account home shows saved
+Add Supabase Auth phone OTP for community login after privacy review. Supabase
+identifies the person and controls the records. The account home shows saved
 services, current requests, referral status and safe contact preferences.
 
 ### Phase E — Referral Request Flow
@@ -99,7 +100,7 @@ completion, outcome rates, stale data and service gaps.
 ### Phase I — Release Gates
 
 No real launch until legal/privacy, Aboriginal governance, crisis-safety,
-youth-safety, Clerk/Supabase security, accessibility, operator training,
+youth-safety, Supabase Auth security, accessibility, operator training,
 service-directory review, call scripts, incident plan, rollback and named human
 go/no-go are complete.
 
@@ -154,13 +155,14 @@ go/no-go are complete.
     surprise SMS/calls and a list fallback for people who cannot use maps.
 23. Add accessibility acceptance: WCAG 2.2 AA, keyboard, screen reader, large
     tap targets, plain English and low-bandwidth testing.
-24. Design Clerk phone OTP with synthetic users and test phone numbers only.
-25. Configure Supabase third-party auth for Clerk; do not use deprecated custom
-    Clerk JWT-template patterns.
-26. Create internal Supabase person profiles mapped from Clerk user IDs, with
-    account-linking and duplicate/shared-phone review.
-27. Write RLS tests proving Clerk login can access only that person's saved
-    services, requests and preferences.
+24. Design Supabase Auth phone OTP with synthetic users and test phone numbers
+    only.
+25. Configure the Supabase Send SMS Hook so OTP can route through Sinch
+    MessageMedia after approval.
+26. Create internal Supabase person profiles mapped from Supabase Auth user
+    IDs, with account-linking and duplicate/shared-phone review.
+27. Write RLS tests proving a person can access only their own saved services,
+    requests and preferences.
 28. Build account home: saved services, current requests, referral status, safe
     contact preferences and help history.
 29. Build service detail pages: description, eligibility, documents, contact,
@@ -177,8 +179,7 @@ go/no-go are complete.
     and operator note, each blocked unless consent and safety rules allow it.
 35. Add follow-up scheduling through Postgres outbox plus Supabase Cron/Queues
     or a Sydney worker; do not schedule directly inside external providers.
-36. For SMS, evaluate Sinch MessageMedia and Twilio first, with AWS End User
-    Messaging as an AWS-aligned alternative. Require two-way STOP, Australian
+36. For SMS, implement Sinch MessageMedia. Require two-way STOP, Australian
     sender rules, webhooks and suppression tests.
 37. For voice, begin with manual/human phone logging inside the operator
     console. Evaluate Amazon Connect Sydney only when queues, supervision,
@@ -190,7 +191,7 @@ go/no-go are complete.
     needs, referral acceptance, outcomes, stale data, service gaps and pilot
     limitations.
 40. Run release gates: legal/privacy, Indigenous Data Sovereignty, crisis,
-    youth, Clerk/Supabase security, accessibility, operator training,
+    youth, Supabase Auth security, accessibility, operator training,
     service-directory review, scripts approval, incident/rollback and named
     human go/no-go.
 
@@ -201,15 +202,15 @@ go/no-go are complete.
 | Web app | Next.js App Router + React + TypeScript | Matches existing platform and Vercel deployment |
 | Hosting | Vercel, Sydney-configured where sensitive server code runs | Existing hosting path; keep server work close to Sydney data |
 | Database | Supabase Postgres in `ap-southeast-2` | Relational data, RLS, SQL reporting, migrations, restore |
-| Community auth | Clerk phone OTP | Low-friction mobile login, subject to privacy gate |
-| Staff auth | Existing staff/admin path until separate approval | Avoid casual staff identity migration |
+| Community auth | Supabase Auth phone OTP | Keeps identity, RLS and Sydney Supabase project aligned |
+| Staff auth | Supabase Auth staff/admin path | Named accounts, MFA and local membership checks |
 | Directory schema | Open Referral HSDS-inspired local tables | Standard shape for organisations, services and locations |
 | External welfare directory | Ask Izzy/Infoxchange outbound links first; API/widget later | Avoid rebuilding national directory maintenance |
 | External health directory | Healthdirect/NHSD outbound links first; API/widget later | Use trusted health-service source |
 | Location | Postcode/suburb first | Safer and easier than device GPS |
 | Maps/geocoding | Mapbox optional later | Useful for search/autocomplete, not required for release one |
 | Queue/jobs | Postgres outbox + Supabase Cron/Queues or Sydney worker | Keeps eligibility and suppression inside IRAAC control |
-| SMS | Sinch MessageMedia or Twilio after bake-off; AWS End User Messaging as AWS alternative | Need Australian two-way STOP and sender compliance |
+| SMS | Sinch MessageMedia | Australian-first operational fit with two-way STOP and sender compliance |
 | Email | Amazon SES | Receipts, consent confirmations, internal notices |
 | Voice | Manual phone logging first; Amazon Connect Sydney later | Avoid heavy contact-centre platform until volume justifies it |
 | AI assistance | Advisory only, behind human operator | Summaries/search/scripts only; no crisis decisions |
@@ -243,8 +244,7 @@ gaps without exposing private information.
 - Indigenous Data Sovereignty means Aboriginal governance must control what is
   collected, how it is interpreted, who sees it, what is published and how
   service gaps are prioritised.
-- Clerk is useful for community login, but real phone numbers require privacy,
-  overseas-processing and SMS-subprocessor review before production.
+- Supabase Auth is the community-login layer.
 
 Reference links:
 
@@ -258,11 +258,9 @@ Reference links:
 - https://www.infrastructure.gov.au/media-communications/phone/triple-zero
 - https://www.oaic.gov.au/privacy/australian-privacy-principles
 - https://www.maiamnayriwingara.org/mnw-principles
-- https://clerk.com/docs/guides/development/custom-flows/authentication/email-sms-otp
-- https://supabase.com/docs/guides/auth/third-party/clerk
+- https://supabase.com/docs/guides/auth/phone-login
+- https://supabase.com/docs/guides/auth/auth-hooks/send-sms-hook
 - https://docs.aws.amazon.com/connect/latest/adminguide/regions.html
 - https://docs.aws.amazon.com/sms-voice/latest/userguide/two-way-sms.html
-- https://www.twilio.com/docs/taskrouter
-- https://www.twilio.com/en-us/guidelines/au/sms
 - https://support.app.sinch.com/hc/en-us/articles/10526516506383-Opt-out-unsubscribe-management
 - https://docs.mapbox.com/api/search/search-box/

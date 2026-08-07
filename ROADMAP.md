@@ -25,7 +25,7 @@ reporting and operational proof exist before outbound scale.
 | **R6 — email** | Eligible newsletter delivery, unsubscribe, complaints and suppression | Provider sandbox and locked-cohort tests pass; no recipient relies on inferred consent |
 | **R7 — SMS and human phone** | Separately eligible SMS and assisted survey, immediate STOP/DNC capture | Channel eligibility and suppression are proven end to end |
 | **R8 — AI voice pilot** | Disclosed, consented, small AI survey-call pilot with human handoff | Legal/privacy/cultural policy, recording consent, safety and quality gates pass |
-| **Phase 7 / R9 — Service Connector + 1800 Mob Link pilot** | Location-based Aboriginal service finder, referral handoff and longitudinal call-centre outcome follow-up | Clerk login, legal, privacy, cultural-governance, crisis-safety, service-directory, human-operator and reporting gates pass before public launch |
+| **Phase 7 / R9 — Service Connector + 1800 Mob Link pilot** | Location-based Aboriginal service finder, referral handoff and longitudinal call-centre outcome follow-up | Supabase Auth login, legal, privacy, cultural-governance, crisis-safety, service-directory, human-operator and reporting gates pass before public launch |
 
 ### Standing administrative authority
 
@@ -274,8 +274,8 @@ improvement -> government reporting.**
 The person-facing experience starts in the app. The call-centre experience
 starts after a service request, referral or saved service action.
 
-1. A community member logs in with Clerk using a verified mobile number or
-   another approved method.
+1. A community member logs in with Supabase Auth using a verified mobile
+   number or another approved method.
 2. The app asks for location by postcode/suburb first, with optional device
    location only if clearly explained and consented.
 3. The app shows local and national services the person may be able to access,
@@ -319,19 +319,17 @@ referral-only, walk-in, phone-based, online or appointment-based.
 ### Account and service portal direction
 
 After P1 and reporting controls are stable, IRAAC can introduce an account-based
-service portal using **Clerk for community login** and Supabase Postgres as the
+service portal using **Supabase Auth phone OTP** and Supabase Postgres as the
 system of record. A community member may sign in with a mobile number or other
 approved low-friction method, see the services they have asked for, add current
 supports, request new supports, review safe contact choices and track whether a
 referral is waiting, accepted, completed or escalated. The interface should
 feel like a simple, Aboriginal-led service access record, not a generic CRM.
 
-Clerk is selected for the community-facing Service Connector because it gives
-the fastest path to a polished mobile-number sign-in, account-management UI and
-Next.js integration. Staff/admin access may continue to use the existing
-approved staff-auth path until a separate identity ADR says otherwise. Clerk
-must integrate with Supabase through server-side session checks and RLS-aware
-claims so app login never becomes blanket database access.
+Supabase Auth is selected for the community-facing Service Connector because it
+keeps identity, RLS and the Sydney Supabase project aligned. Staff/admin access
+also stays on the approved Supabase Auth path until a separate identity ADR
+says otherwise.
 
 The service taxonomy starts with location and need:
 
@@ -403,21 +401,23 @@ approved.
 ### Technology stack decisions
 
 [`docs/adr/0005-service-connector-technology-stack.md`](docs/adr/0005-service-connector-technology-stack.md)
-is the authority for Phase 7/R9 implementation choices.
+and
+[`docs/adr/0006-use-supabase-auth-and-sinch-for-service-connector.md`](docs/adr/0006-use-supabase-auth-and-sinch-for-service-connector.md)
+are the authorities for Phase 7/R9 implementation choices.
 
 | Element | Phase 7/R9 decision |
 |---|---|
 | Web app | Next.js App Router, React, TypeScript |
 | Hosting | Vercel, with approved Sydney-region server execution for sensitive work |
-| Community login | Clerk phone OTP after privacy approval; Supabase remains the data authority |
-| Staff access | Existing staff/admin path until a separate staff-identity decision is approved |
+| Community login | Supabase Auth phone OTP through the approved SMS provider |
+| Staff access | Supabase Auth staff/admin path with named accounts, MFA and membership checks |
 | Database | Supabase Postgres in Sydney, with RLS, audit trails and append-only migrations |
 | Service directory | Open Referral HSDS-inspired local tables, starting with synthetic Illawarra seed data |
 | External directories | Outbound links first; Infoxchange/Ask Izzy and Healthdirect/NHSD API or widget review later |
 | Search | Postcode/suburb, category and service-need filters first; precise GPS is optional later |
 | Map/geocoding | Mapbox or MapLibre only after list search and service data quality are proven |
 | Follow-up jobs | Postgres outbox plus Supabase Cron/Queues or an approved Sydney worker |
-| SMS | Sinch MessageMedia and Twilio bake-off; AWS End User Messaging as an AWS-aligned alternative |
+| SMS | Sinch MessageMedia, with AWS End User Messaging only as an emergency alternative |
 | Email | Amazon SES for receipts, consent confirmations and internal notices |
 | Voice | Manual phone logging first; Amazon Connect Sydney only when queue/supervision needs are real |
 | AI | Advisory summaries, search help and script drafting only; no crisis or eligibility decisions |
@@ -912,12 +912,11 @@ sets their own password, enrols TOTP MFA, accepts the staff access terms and
 activates one staff membership. Nobody—including an administrator or agent—sets
 or sees another person's password.
 
-The choice is deliberate but reversible:
+The choice is deliberate:
 
 | Option | Strength for IRAAC | Reason not selected for V1 |
 |---|---|---|
 | **Supabase Auth — selected** | Fewest vendors, Sydney-project alignment, native users/JWT/RLS, server invitations, self-set passwords, MFA and audit events | IRAAC must build and test a small branded invitation/account-management experience |
-| **Clerk — fallback** | Best known staff experience; restricted sign-up, individual invitations, self-set passwords, required MFA, Next.js UI and documented Supabase JWT/RLS integration | Adds an offshore identity vendor, lifecycle synchronisation and paid-feature/exit dependency; use only if the Supabase onboarding pilot materially fails |
 | **Auth0** | Mature invitations, organisations, RBAC, MFA and operational tooling | More configuration and likely cost than this small known staff group needs |
 | **WorkOS AuthKit** | Strong invite-only B2B auth, SSO, directory and organisation features | Optimised for enterprise customer identity; unnecessary complexity for the initial cohort |
 | **Microsoft Entra workforce/B2B** | Strong future option if IRAAC standardises staff identities in one managed Microsoft tenant | The current approved addresses span Gmail and several domains, making guest lifecycle and support less simple than direct invitations |
@@ -1646,9 +1645,8 @@ The baseline to validate through Architecture Decision Records (ADRs) is:
   production candidate for progressive/predictive calling, human queues,
   transfers, monitoring and call operations.
 - **AI voice:** time-box a technical bake-off between Amazon Connect AI agents
-  and Telnyx's current Australian Voice AI locality offering. Twilio
-  ConversationRelay is the programmable challenger if an additional benchmark
-  is justified. All remain behind IRAAC provider adapters.
+  and Telnyx's current Australian Voice AI locality offering. Both remain
+  behind IRAAC provider adapters.
 - **Reports:** deterministic SQL/TypeScript aggregates into bounded,
   de-identified snapshots; an approved LLM may draft narrative; humans approve
   all releases.
@@ -1763,11 +1761,10 @@ invalidates the affected approval and requires reapproval.
 
 The current build sequence and provider proof work are in
 [`PRODUCTION_LAUNCH_PLAN.md`](PRODUCTION_LAUNCH_PLAN.md). Amazon Connect Sydney
-is the strongest contact-centre baseline; Telnyx is the
-strongest current Australian Voice AI locality challenger; Twilio is the best
-programmable comparison; Talkdesk and Genesys are managed-enterprise quote
-benchmarks. Google and Microsoft become more attractive only if IRAAC adopts
-their wider ecosystems.
+is the strongest contact-centre baseline; Telnyx is the strongest current
+Australian Voice AI locality challenger; Talkdesk and Genesys are
+managed-enterprise quote benchmarks. Google and Microsoft become more
+attractive only if IRAAC adopts their wider ecosystems.
 
 The production pattern is deliberately hybrid. One vendor does not need to own
 every channel. IRAAC owns consent and orchestration, SES handles economical
@@ -2193,10 +2190,7 @@ Australian legal, ethics or community-governance advice.
   [configuration](https://supabase.com/docs/guides/auth/general-configuration),
   [sessions](https://supabase.com/docs/guides/auth/sessions) and
   [audit logs](https://supabase.com/docs/guides/auth/audit-logs)
-- Auth alternatives: Clerk [restricted access](https://clerk.com/docs/guides/secure/restricting-access),
-  [invitations](https://clerk.com/docs/guides/organizations/add-members/invitations),
-  [Supabase integration](https://clerk.com/docs/guides/development/integrations/databases/supabase)
-  and [DPA](https://clerk.com/legal/dpa); Auth0
+- Auth alternatives: Auth0
   [organisation invitations](https://auth0.com/docs/manage-users/organizations/configure-organizations/invite-members);
   WorkOS [invite-only AuthKit](https://workos.com/docs/authkit/invite-only-signup);
   Microsoft Entra [B2B guest invitations](https://learn.microsoft.com/en-us/entra/external-id/b2b-quickstart-add-guest-users-portal)

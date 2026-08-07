@@ -11,7 +11,7 @@ Use the existing IRAAC platform stack as the base for Phase 7/R9:
 - Vercel for hosting, with Sydney-configured server execution where required;
 - Supabase Postgres in Sydney as the system of record;
 - Supabase RLS, append-only migrations and pgTAP database tests;
-- Clerk for community login only, subject to privacy approval;
+- Supabase Auth for community login and staff login;
 - Open Referral HSDS-inspired local service-directory schema;
 - outbound links to Ask Izzy/Infoxchange and Healthdirect/NHSD first, with API
   or widget integrations only after partnership/licensing review;
@@ -22,8 +22,8 @@ Use the existing IRAAC platform stack as the base for Phase 7/R9:
 - a small IRAAC-owned operator console and manual/human phone logging first;
 - Amazon Connect Sydney only when live call queues, supervision, call
   recording or multi-operator routing are justified;
-- Sinch MessageMedia and Twilio as first SMS bake-off candidates, with AWS End
-  User Messaging as the AWS-aligned alternative;
+- Sinch MessageMedia as the SMS provider, with AWS End User Messaging as the
+  AWS-aligned emergency alternative;
 - Amazon SES for email receipts, consent confirmations and internal notices;
 - locked Supabase snapshots for reporting.
 
@@ -38,9 +38,9 @@ Supabase remains the backbone because the project needs relational records:
 services, locations, eligibility, users, saved services, intakes, referrals,
 consent receipts, follow-ups, outcomes, suppressions and report snapshots.
 
-Clerk is useful for low-friction community login, but it is not the data
-authority and real phone numbers cannot enter Clerk until privacy and
-subprocessor review is complete.
+Supabase Auth is the community-login choice because it keeps identity, RLS and
+the Sydney Supabase project aligned. It avoids adding another identity vendor,
+data-flow map, overseas-processing review and deletion path.
 
 The directory approach should integrate rather than duplicate. Ask Izzy,
 Infoxchange and Healthdirect already carry national directory maintenance
@@ -55,8 +55,8 @@ reporting layer.
 | Public app shell | Next.js App Router + React + TypeScript | Use existing app conventions |
 | Hosting | Vercel | Sensitive functions must use approved region/data-flow map |
 | System of record | Supabase Postgres Sydney | No Convex production data |
-| Community login | Clerk phone OTP | Synthetic/test phones until privacy gate |
-| Staff/operator access | Existing admin auth path | Do not migrate casually to Clerk |
+| Community login | Supabase Auth phone OTP | Route OTP through Sinch after privacy and sender approval |
+| Staff/operator access | Supabase Auth admin path | Keep named staff accounts, MFA and local membership checks |
 | Directory model | HSDS-inspired Supabase tables | Local priority records only at first |
 | Broad welfare search | Ask Izzy/Infoxchange links, then API/widget review | Do not scrape |
 | Health search | Healthdirect/NHSD links, then API/widget review | Do not scrape |
@@ -64,7 +64,7 @@ reporting layer.
 | Location search | suburb/postcode + radius | Device GPS optional later |
 | Mapping | Mapbox Search/Geocoding optional | Not required for first release |
 | Jobs | Postgres outbox + Supabase Cron/Queues/Sydney worker | Providers never own eligibility |
-| SMS | Sinch MessageMedia vs Twilio bake-off; AWS End User Messaging as AWS alternative | Require two-way STOP |
+| SMS | Sinch MessageMedia | Require two-way STOP |
 | Email | Amazon SES | Receipts, consent confirmations, internal notices |
 | Voice | Manual/human phone logging first; Amazon Connect Sydney later | Add Connect only when queue/call-centre needs are real |
 | AI | Advisory summaries/search/script support | No crisis or eligibility decisions |
@@ -79,6 +79,10 @@ reporting layer.
   concerns.
 - Provider dashboards as the control plane: consent, suppression, task
   eligibility and reporting must remain in IRAAC-owned Supabase tables.
+- Any second identity provider for production community login: unnecessary
+  first-release data-flow complexity.
+- Any second SMS provider in production: do not split suppression, delivery and
+  incident response across two SMS systems.
 - Amazon Connect on day one: too heavy before volume, live queues and
   supervision are proven.
 - AI-first call centre: too risky before human scripts, consent and crisis
@@ -89,8 +93,8 @@ reporting layer.
 ## References
 
 - Next.js on Vercel: https://vercel.com/docs/frameworks/full-stack/nextjs
-- Supabase Clerk integration: https://supabase.com/docs/guides/auth/third-party/clerk
-- Clerk Supabase integration: https://clerk.com/docs/guides/development/integrations/databases/supabase
+- Supabase phone login: https://supabase.com/docs/guides/auth/phone-login
+- Supabase Send SMS Hook: https://supabase.com/docs/guides/auth/auth-hooks/send-sms-hook
 - Supabase RLS: https://supabase.com/docs/guides/database/postgres/row-level-security
 - Supabase scheduled functions: https://supabase.com/docs/guides/functions/schedule-functions
 - Supabase regional invocation: https://supabase.com/docs/guides/functions/regional-invocation
@@ -101,7 +105,6 @@ reporting layer.
 - Amazon Connect regions: https://docs.aws.amazon.com/connect/latest/adminguide/regions.html
 - Amazon Connect Tasks: https://docs.aws.amazon.com/connect/latest/adminguide/tasks.html
 - AWS two-way SMS: https://docs.aws.amazon.com/sms-voice/latest/userguide/two-way-sms.html
-- Twilio TaskRouter: https://www.twilio.com/docs/taskrouter
-- Twilio Australia SMS guidelines: https://www.twilio.com/en-us/guidelines/au/sms
 - Sinch opt-out management: https://support.app.sinch.com/hc/en-us/articles/10526516506383-Opt-out-unsubscribe-management
+- ACMA SMS Sender ID Register: https://www.acma.gov.au/sms-sender-id-register
 - OAIC APP 3: https://www.oaic.gov.au/privacy/australian-privacy-principles/australian-privacy-principles-guidelines/chapter-3-app-3-collection-of-solicited-personal-information

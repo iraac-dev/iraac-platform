@@ -45,7 +45,7 @@ IRAAC reaches production through four independently releasable capabilities:
 | **P2 / R6 — Email** | Approved full-audience newsletter and locked-cohort survey email for eligible pilot contacts; bounces, complaints and unsubscribe work end to end | SMS and outbound calls |
 | **P3 — SMS + human phone** | SMS chase and phone-assisted survey for separately eligible contacts; immediate channel/global suppression | AI calls |
 | **P4 — AI phone pilot** | Small, consented AI survey-call pilot with immediate disclosure, deterministic survey flow and human handoff | Expansion beyond approved pilot limits |
-| **Phase 7 / R9 — Service Connector + 1800 Mob Link pilot** | Location-based Aboriginal service finder, Clerk login, referral handoff, service portal foundation and longitudinal call-centre outcome follow-up | National launch, real outreach, named service-performance publication and production call recording |
+| **Phase 7 / R9 — Service Connector + 1800 Mob Link pilot** | Location-based Aboriginal service finder, Supabase Auth login, referral handoff, service portal foundation and longitudinal call-centre outcome follow-up | National launch, real outreach, named service-performance publication and production call recording |
 
 P1 is the fastest useful production goal. P2 is the fastest outreach goal. P3
 and P4 are separate releases because their legal, carrier, safety, speech
@@ -88,14 +88,12 @@ may describe the blocked capability as live or bypass the gate to meet a date.
   first-party React adapter and governed by the IRAAC TypeScript/Zod contract.
   ADR 0001 supersedes the earlier SurveyJS assumption.
 - **Application:** Next.js, React and TypeScript, with Vitest and Playwright.
-- **System of record and staff identity:** Supabase Postgres and Supabase Auth
-  in `ap-southeast-2` (Sydney), deny-by-default RLS, named invitations and
-  mandatory AAL2 MFA. Clerk is the tested fallback, not a second V1 identity
-  store.
-- **Community Service Connector login:** Clerk is selected for Phase 7/R9
-  community login, starting with verified mobile-number sign-in where approved.
-  Clerk sessions must be checked server-side and mapped into Supabase RLS-aware
-  claims; Clerk is not the data system of record.
+- **System of record and identity:** Supabase Postgres and Supabase Auth
+  in `ap-southeast-2` (Sydney), deny-by-default RLS, named invitations,
+  community phone OTP and mandatory staff AAL2 MFA.
+- **Community Service Connector login:** Supabase Auth is selected for Phase
+  7/R9 community login. Phone OTP should be sent through the approved SMS
+  provider after privacy, sender-registration and safe-contact review.
 - **Hosting:** public site remains on Vercel; private app and survey use a
   Sydney-configured execution path subject to the approved data-flow map.
 - **Jobs:** Postgres transactional outbox plus Supabase Queues/Cron and a
@@ -103,8 +101,8 @@ may describe the blocked capability as live or bypass the gate to meet a date.
 - **Email:** Amazon SES candidate, initially limited to synthetic/internal and
   explicit opt-in recipients unless AWS and counsel approve the exact Business
   Contacts use case.
-- **SMS:** two-way Australian-capable provider bake-off, with Sinch
-  MessageMedia and AWS End User Messaging as the shortlisted options.
+- **SMS:** Sinch MessageMedia is the primary provider. AWS End User Messaging
+  stays the AWS-aligned emergency alternative.
 - **Voice:** Amazon Connect Sydney proof of concept; human calls first; AI
   calls remain a separate opt-in pilot.
 - **Delivery:** Codex implements narrow work orders; Claude Code is the
@@ -146,7 +144,7 @@ Never paste credentials or recovery codes into chat, GitHub or this repository.
 
 | Website | Trigger | Decision |
 |---|---|---|
-| [Sinch MessageMedia](https://messagemedia.com/au/) | P2 is stable and P3 SMS wording/legal basis is approved | Open a trial/production account and test Australian two-way replies, `STOP`, delivery receipts, webhooks, sender registration, subprocessor locations, support and cost against AWS End User Messaging. Select one; do not run two production suppression sources. |
+| [Sinch MessageMedia](https://messagemedia.com/au/) | P2 is stable and P3 SMS wording/legal basis is approved | Open a trial/production account as the primary SMS provider and test Australian two-way replies, `STOP`, delivery receipts, webhooks, sender registration, subprocessor locations, support and cost. Do not run two production suppression sources. |
 | [Amazon Connect](https://console.aws.amazon.com/connect/) | Human-phone P3 design is approved | Create the Sydney instance, claim/port a working caller-ID number, request outbound quotas (default campaign concurrency may be zero), configure KMS, queues and human escalation, and prove the exact Australian flow. |
 | [Telnyx](https://telnyx.com/sign-up) | P4 voice proof needs a genuine challenger | Time-box an Australian Voice AI bake-off only if Amazon Connect fails a defined latency, speech-quality, locality, handoff or cost threshold. Do not send production data during the comparison. |
 | [Qualtrics](https://www.qualtrics.com/au/) | V1 survey spike fails a mandatory threshold | Request an Australian-region trial/quote for the already-defined comparison. It is a fallback validation exercise, not a second system of record. |
@@ -233,7 +231,7 @@ are stable so another agent can take over without re-planning.
 
 | ID | Work package | Depends on | Done when |
 |---|---|---|---|
-| `SMS-001` | Provider bake-off and data-flow/contract decision | Stable P2, SMS approval | One provider selected by tested delivery, two-way STOP, webhooks, locality, support and cost; ADR approved |
+| `SMS-001` | Sinch MessageMedia data-flow, contract and integration proof | Stable P2, SMS approval | Sinch passes tested delivery, two-way STOP, webhooks, locality, support and cost; ADR 0006 remains approved |
 | `SMS-002` | Add provider adapter, `STOP`/`STOP ALL`, preferences, delivery events and remaining-non-completer transition | `SMS-001` | Stop is immediate and idempotent; email unsubscribe does not silently block separately permitted SMS; global stop blocks all |
 | `CALL-001` | Build phone-assisted operator mode against the canonical survey | `REL-P1`, human-call approval | Masked identity, eligibility reason, quiet hours, attempt cap, dispositions, stop interrupt and safety/human escalation pass |
 | `REL-P3` | Small approved SMS and human-phone pilot | `SMS-002`, `CALL-001`, sender/number/quota readiness | Every recipient passes live eligibility; complaint/stop and incident drills pass before expansion |
@@ -253,7 +251,7 @@ are stable so another agent can take over without re-planning.
 | `R9-A` | Groundwork: product boundary, technology ADR, directory research, user journeys and taxonomy | R5, safety/legal/governance input | ADR 0005, journeys, taxonomy and integration decisions are accepted |
 | `R9-B` | Service-directory data model and synthetic Illawarra seed | `R9-A` | HSDS-shaped Supabase tables, pgTAP/RLS tests and synthetic records pass |
 | `R9-C` | Basic postcode/suburb search and service detail UI | `R9-B` | List-first search, crisis routing, safety UX and accessibility checks pass |
-| `R9-D` | Clerk community-login architecture and account home | `R9-A`, privacy review | Phone OTP, Supabase Third-Party Auth, RLS mapping and account-home tests pass with synthetic users |
+| `R9-D` | Supabase Auth community-login architecture and account home | `R9-A`, privacy review | Phone OTP, Supabase RLS mapping and account-home tests pass with synthetic users |
 | `R9-E` | Referral request flow | `R9-C`, `R9-D`, consent approval | Request help, consent receipts, safe contact, referral status and audit pass |
 | `R9-F` | 1800 Mob Link operator console | `R9-E` | Staff queue, manual phone logging, scripts, escalation and provider-adapter boundaries pass |
 | `R9-G` | Follow-up and outcome measurement | `R9-F` | Referral -> check-in -> outcome -> referral improvement runs with synthetic data |
