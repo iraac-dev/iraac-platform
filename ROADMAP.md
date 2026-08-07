@@ -25,6 +25,7 @@ reporting and operational proof exist before outbound scale.
 | **R6 — email** | Eligible newsletter delivery, unsubscribe, complaints and suppression | Provider sandbox and locked-cohort tests pass; no recipient relies on inferred consent |
 | **R7 — SMS and human phone** | Separately eligible SMS and assisted survey, immediate STOP/DNC capture | Channel eligibility and suppression are proven end to end |
 | **R8 — AI voice pilot** | Disclosed, consented, small AI survey-call pilot with human handoff | Legal/privacy/cultural policy, recording consent, safety and quality gates pass |
+| **Phase 7 / R9 — Service Connector + 1800 Mob Link pilot** | Location-based Aboriginal service finder, referral handoff and longitudinal call-centre outcome follow-up | Supabase Auth login, legal, privacy, cultural-governance, crisis-safety, service-directory, human-operator and reporting gates pass before public launch |
 
 ### Standing administrative authority
 
@@ -77,15 +78,30 @@ production launch plan are the current agent instructions.
 
 ---
 
-## 1. Mission and framing: the listening-and-advocacy model
+## 1. Mission and framing: advocacy plus direct service delivery
 
-IRAAC is an Aboriginal Community Organisation. It does not deliver services in
-the traditional sense — it *listens* to community members, *advocates* to
-government on their behalf, and *reports back* on what changed. That listen →
-advocate → report loop is the entire product. Everything the website, the
-contact groups, the phone surveys, the admin dashboard, and the reports
-system exist to do is make that loop faster, more evidenced, and more visible
-to the people involved in it.
+IRAAC is an Aboriginal Community Organisation that does two connected things.
+It listens to community members, advocates to government and reports back on
+what changed; it also builds and operates direct programs that support people
+on the ground. The listening loop supplies evidence for government
+recommendations, while programs such as YouthScape, The Crew, DARC and MCC
+turn community priorities into practical support pathways.
+
+YouthScape must be treated as a real IRAAC program seeking funding and
+implementation support, not as a mere advocacy topic. Its intended direct
+service model is an Aboriginal youth crisis centre and bail accommodation
+pathway for the Illawarra, with beds, transport, cultural connection,
+education re-engagement, Aboriginal Legal Service connection, health access
+and wraparound care. Until funding, operating approvals, referral rules and
+site readiness are confirmed, public copy must not imply that every part of
+the service is already live.
+
+The evidence loop and the service-delivery loop reinforce each other. IRAAC
+can listen, recommend to government and report back, while also running or
+coordinating programs that directly help community members. Every new feature
+must say which loop it strengthens: community listening, direct service
+delivery, service navigation, referral accountability, government advocacy or
+public reporting.
 
 The cycle band already shown under the homepage hero states it plainly:
 **You share → We listen → We recommend to government → We report back.** Every
@@ -93,11 +109,12 @@ new feature we build should either strengthen one of those four steps or make
 the loop between them shorter. If a feature doesn't do that, it doesn't belong
 here yet.
 
-This framing shapes copy, information architecture, tone of voice, and the
-relative prominence of features. It is deliberately not a service-provider
-framing — IRAAC is not asking "how can we help you?" so much as "what should
-we take to government on your behalf, and did what we took last time actually
-work?"
+This framing shapes copy, information architecture, tone of voice and the
+relative prominence of features. IRAAC can ask both "what should we take to
+government on your behalf?" and "what practical support do you need right
+now?" The platform must keep those pathways distinct so a person seeking a
+service does not accidentally enter a survey-only flow, and a person sharing
+feedback is not misled into thinking a service has already been arranged.
 
 ---
 
@@ -142,6 +159,8 @@ as the front door of the listening loop.
 | Central contact/consent store | Partial, non-production | Suppression is deny-wins; transactional receipt evidence remains |
 | Email/SMS/voice campaigns | Not built | No provider integration, eligibility engine or suppression ledger |
 | Phone operator console | Not built | No canonical phone-assisted survey workflow |
+| Location-based Aboriginal Service Connector | Proposed strategic product | Different from Have Your Say; app front door for service navigation and referral tracking |
+| 1800 Mob Link service-navigation line | Proposed strategic program | Call-centre follow-up engine; not live; must not replace 000, 13YARN or existing crisis/legal services |
 | Admin/auth/audit | Partial, non-production | AAL2 flow exists; membership-scoped authorization remains |
 | Reporting automation | Not built | AI may draft only after governed aggregate pipeline exists |
 
@@ -213,6 +232,212 @@ The loop closes through re-surveying. Issues become recommendations to
 government, recommendations become tracked actions, and later surveys ask
 whether circumstances changed. The visible product promise remains:
 **You share → We listen → We recommend to government → We report back.**
+
+---
+
+## 3A. Phase 7/R9: Location-based Service Connector + 1800 Mob Link
+
+The next major product direction is the **Location-based Aboriginal Service
+Connector**, backed by **1800 Mob Link**. This is a different product from the
+Have Your Say survey. Have Your Say collects community views and evidence. The
+Service Connector helps a person find, request and track services near them.
+1800 Mob Link then follows up through a call centre to check whether the
+service connection actually worked.
+
+The proposed call-centre number remains **1800 MOB LINK (1800 662 5465)**. The
+public promise is simple: Aboriginal and Torres Strait Islander community
+members should be able to log in or call, see what support exists locally and
+nationally, get connected, and later be asked whether the service helped,
+failed, delayed, disappeared or needs escalation.
+
+1800 Mob Link does not replace emergency, crisis, legal or health services. It
+must route urgent risk to existing emergency and specialist services such as
+000, 13YARN or locally approved crisis pathways. Its distinctive role is to
+connect people to the right service, record what referral was requested, and
+close the loop through consented follow-up and de-identified reporting.
+
+### Product thesis
+
+Aboriginal service access is fragmented. Community members may face housing,
+bail, domestic violence, transport, education, legal, cultural-connection,
+Centrelink, family, youth, health or mental-health needs without knowing which
+local service is suitable, available or accountable. At the same time,
+government and community organisations often lack a shared longitudinal view
+of whether referrals led to practical help.
+
+The Service Connector and 1800 Mob Link turn that gap into a new accountable
+loop:
+
+**location -> service discovery -> referral -> check-in -> outcome -> referral
+improvement -> government reporting.**
+
+The person-facing experience starts in the app. The call-centre experience
+starts after a service request, referral or saved service action.
+
+1. A community member logs in with Supabase Auth using a verified mobile
+   number or another approved method.
+2. The app asks for location by postcode/suburb first, with optional device
+   location only if clearly explained and consented.
+3. The app shows local and national services the person may be able to access,
+   including eligibility, opening hours, contact options, referral requirements
+   and whether IRAAC can help connect them.
+4. The person saves a service, requests help, starts a referral, asks for a
+   call back, or records that they are already signed up with a service.
+5. A culturally safe intake flow identifies location, need, urgency, safe
+   contact preferences and consent.
+6. A human operator or approved AI-assisted tool connects, transfers, texts or
+   emails the person and, where consented, sends a referral summary to the
+   selected service.
+7. A few days later, 1800 Mob Link follows up: "We saw you signed up with or
+   asked for help from [service]. Did they get in touch? Was it useful? What
+   could change? What do you need more of?"
+8. The platform records outcome evidence and improves service recommendations.
+9. The platform reports de-identified outcome and service-performance evidence
+   back to community, IRAAC governance and government.
+
+### Pilot shape
+
+The first pilot is the **Illawarra region**, not a national launch. It should
+begin with a small service directory covering the most likely local needs:
+housing and crisis accommodation, youth bail support, Aboriginal Legal Service
+pathways, land council contacts, domestic and family violence supports,
+transport, education, health, mental health, cultural connection, Centrelink
+navigation and local community programs.
+
+The pilot must include a staffed callback path. AI can help triage, summarise,
+search the directory, draft referral messages and run approved follow-up
+surveys, but AI must not decide crisis safety, legal eligibility, child-safety
+response, cultural appropriateness or whether an opt-out can be ignored. A
+human escalation path is part of the product, not an optional enhancement.
+
+The pilot must include both local and national services. Local services answer
+"who can help near me?" National services answer "what can I access anywhere
+in Australia?" Every result should show whether it is Aboriginal-led,
+Aboriginal-specific, mainstream but relevant, government-run, crisis-only,
+referral-only, walk-in, phone-based, online or appointment-based.
+
+### Account and service portal direction
+
+After P1 and reporting controls are stable, IRAAC can introduce an account-based
+service portal using **Supabase Auth phone OTP** and Supabase Postgres as the
+system of record. A community member may sign in with a mobile number or other
+approved low-friction method, see the services they have asked for, add current
+supports, request new supports, review safe contact choices and track whether a
+referral is waiting, accepted, completed or escalated. The interface should
+feel like a simple, Aboriginal-led service access record, not a generic CRM.
+
+Supabase Auth is selected for the community-facing Service Connector because it
+keeps identity, RLS and the Sydney Supabase project aligned. Staff/admin access
+also stays on the approved Supabase Auth path until a separate identity ADR
+says otherwise.
+
+The service taxonomy starts with location and need:
+
+- housing and homelessness;
+- Centrelink and mainstream government-service navigation;
+- legal advice, bail and court support;
+- domestic, family and sexual violence support;
+- moving out of home, family support and youth support;
+- education, employment and training;
+- transport;
+- health, mental health and social and emotional wellbeing;
+- cultural connection, community events and on-Country activities; and
+- local Aboriginal organisations, programs and drop-ins.
+
+Map-based discovery is a candidate interface for the portal, but Mapbox or any
+other mapping provider is an implementation choice for a later ADR. The first
+requirement is a governed service directory with provenance, coverage, review
+dates, safe-public fields and private referral fields.
+
+### Data and accountability model
+
+The Service Connector adds these major data objects to the platform:
+
+- service directory entry;
+- service location and catchment;
+- service eligibility rule;
+- service contact channel;
+- user service profile;
+- saved service;
+- service request;
+- intake case;
+- referral handoff;
+- follow-up task;
+- outcome check;
+- escalation;
+- service feedback;
+- service-directory correction; and
+- de-identified report snapshot.
+
+Each object must inherit the existing consent, suppression, audit, reporting
+and publication rules. Calls, transcripts, referral summaries and service
+outcomes may contain sensitive personal information and cannot be committed to
+this repository or used in demonstrations with real people.
+
+Accountability reporting focuses on patterns, not public shaming or unsafe
+individual detail. Reports should show which needs are most common, where
+service gaps appear, whether referrals are accepted, whether people report
+getting help, where follow-up fails, and what government should change. Named
+service-performance reporting to government requires legal and governance
+approval, a right-of-reply process where appropriate, and small-cell/privacy
+controls.
+
+### Platform decision: Supabase remains the backbone
+
+Keep Supabase Postgres in Sydney as the system of record for 1800 Mob Link.
+The program needs relational service records, longitudinal case/referral
+history, SQL reporting, RLS, auditability, restore drills, migrations and
+Australian-region control. Convex is attractive for rapid realtime interfaces,
+but its public cloud regions are currently US East and EU West, and it is not
+SQL/Postgres. Do not switch the IRAAC backbone to Convex unless a future ADR
+proves data residency, Indigenous Data Sovereignty, export, audit, reporting,
+RLS-equivalent enforcement, lock-in and cost requirements.
+
+Convex may still be considered for an isolated synthetic prototype or internal
+realtime operator experiment after the data-flow map is approved. If used, it
+must not hold production personal or sensitive community data until the ADR is
+approved.
+
+### Technology stack decisions
+
+[`docs/adr/0005-service-connector-technology-stack.md`](docs/adr/0005-service-connector-technology-stack.md)
+and
+[`docs/adr/0006-use-supabase-auth-and-sinch-for-service-connector.md`](docs/adr/0006-use-supabase-auth-and-sinch-for-service-connector.md)
+are the authorities for Phase 7/R9 implementation choices.
+
+| Element | Phase 7/R9 decision |
+|---|---|
+| Web app | Next.js App Router, React, TypeScript |
+| Hosting | Vercel, with approved Sydney-region server execution for sensitive work |
+| Community login | Supabase Auth phone OTP through the approved SMS provider |
+| Staff access | Supabase Auth staff/admin path with named accounts, MFA and membership checks |
+| Database | Supabase Postgres in Sydney, with RLS, audit trails and append-only migrations |
+| Service directory | Open Referral HSDS-inspired local tables, starting with synthetic Illawarra seed data |
+| External directories | Outbound links first; Infoxchange/Ask Izzy and Healthdirect/NHSD API or widget review later |
+| Search | Postcode/suburb, category and service-need filters first; precise GPS is optional later |
+| Map/geocoding | Mapbox or MapLibre only after list search and service data quality are proven |
+| Follow-up jobs | Postgres outbox plus Supabase Cron/Queues or an approved Sydney worker |
+| SMS | Sinch MessageMedia, with AWS End User Messaging only as an emergency alternative |
+| Email | Amazon SES for receipts, consent confirmations and internal notices |
+| Voice | Manual phone logging first; Amazon Connect Sydney only when queue/supervision needs are real |
+| AI | Advisory summaries, search help and script drafting only; no crisis or eligibility decisions |
+| Reporting | Locked Supabase snapshots and de-identified views |
+
+### Research patterns to reuse
+
+The product should learn from existing Australian service-navigation patterns:
+
+- Ask Izzy shows the value of mobile-first, anonymous, location-based support
+  search across housing, family violence, food, health, legal and other needs.
+- Healthdirect Service Finder and the National Health Services Directory show
+  the value of structured provider data, service type, location, proximity and
+  coverage search.
+- 13YARN shows the safety boundary for Aboriginal and Torres Strait Islander
+  crisis support: 1800 Mob Link can route people to crisis services but must
+  not pretend to replace them.
+- Map search is useful only after service data quality, safety classification
+  and privacy rules are strong enough; a postcode/suburb search is the safer
+  first release.
 
 ---
 
@@ -687,12 +912,11 @@ sets their own password, enrols TOTP MFA, accepts the staff access terms and
 activates one staff membership. Nobody—including an administrator or agent—sets
 or sees another person's password.
 
-The choice is deliberate but reversible:
+The choice is deliberate:
 
 | Option | Strength for IRAAC | Reason not selected for V1 |
 |---|---|---|
 | **Supabase Auth — selected** | Fewest vendors, Sydney-project alignment, native users/JWT/RLS, server invitations, self-set passwords, MFA and audit events | IRAAC must build and test a small branded invitation/account-management experience |
-| **Clerk — fallback** | Best known staff experience; restricted sign-up, individual invitations, self-set passwords, required MFA, Next.js UI and documented Supabase JWT/RLS integration | Adds an offshore identity vendor, lifecycle synchronisation and paid-feature/exit dependency; use only if the Supabase onboarding pilot materially fails |
 | **Auth0** | Mature invitations, organisations, RBAC, MFA and operational tooling | More configuration and likely cost than this small known staff group needs |
 | **WorkOS AuthKit** | Strong invite-only B2B auth, SSO, directory and organisation features | Optimised for enterprise customer identity; unnecessary complexity for the initial cohort |
 | **Microsoft Entra workforce/B2B** | Strong future option if IRAAC standardises staff identities in one managed Microsoft tenant | The current approved addresses span Gmail and several domains, making guest lifecycle and support less simple than direct invitations |
@@ -1421,9 +1645,8 @@ The baseline to validate through Architecture Decision Records (ADRs) is:
   production candidate for progressive/predictive calling, human queues,
   transfers, monitoring and call operations.
 - **AI voice:** time-box a technical bake-off between Amazon Connect AI agents
-  and Telnyx's current Australian Voice AI locality offering. Twilio
-  ConversationRelay is the programmable challenger if an additional benchmark
-  is justified. All remain behind IRAAC provider adapters.
+  and Telnyx's current Australian Voice AI locality offering. Both remain
+  behind IRAAC provider adapters.
 - **Reports:** deterministic SQL/TypeScript aggregates into bounded,
   de-identified snapshots; an approved LLM may draft narrative; humans approve
   all releases.
@@ -1538,11 +1761,10 @@ invalidates the affected approval and requires reapproval.
 
 The current build sequence and provider proof work are in
 [`PRODUCTION_LAUNCH_PLAN.md`](PRODUCTION_LAUNCH_PLAN.md). Amazon Connect Sydney
-is the strongest contact-centre baseline; Telnyx is the
-strongest current Australian Voice AI locality challenger; Twilio is the best
-programmable comparison; Talkdesk and Genesys are managed-enterprise quote
-benchmarks. Google and Microsoft become more attractive only if IRAAC adopts
-their wider ecosystems.
+is the strongest contact-centre baseline; Telnyx is the strongest current
+Australian Voice AI locality challenger; Talkdesk and Genesys are
+managed-enterprise quote benchmarks. Google and Microsoft become more
+attractive only if IRAAC adopts their wider ecosystems.
 
 The production pattern is deliberately hybrid. One vendor does not need to own
 every channel. IRAAC owns consent and orchestration, SES handles economical
@@ -1968,10 +2190,7 @@ Australian legal, ethics or community-governance advice.
   [configuration](https://supabase.com/docs/guides/auth/general-configuration),
   [sessions](https://supabase.com/docs/guides/auth/sessions) and
   [audit logs](https://supabase.com/docs/guides/auth/audit-logs)
-- Auth alternatives: Clerk [restricted access](https://clerk.com/docs/guides/secure/restricting-access),
-  [invitations](https://clerk.com/docs/guides/organizations/add-members/invitations),
-  [Supabase integration](https://clerk.com/docs/guides/development/integrations/databases/supabase)
-  and [DPA](https://clerk.com/legal/dpa); Auth0
+- Auth alternatives: Auth0
   [organisation invitations](https://auth0.com/docs/manage-users/organizations/configure-organizations/invite-members);
   WorkOS [invite-only AuthKit](https://workos.com/docs/authkit/invite-only-signup);
   Microsoft Entra [B2B guest invitations](https://learn.microsoft.com/en-us/entra/external-id/b2b-quickstart-add-guest-users-portal)

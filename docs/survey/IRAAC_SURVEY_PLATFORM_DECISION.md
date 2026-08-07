@@ -58,6 +58,7 @@ alter live evidence.
 | Qualtrics | Mature enterprise survey and offline features | Higher cost and lock-in; API/offline capabilities depend on licensing and do not remove IRAAC's custom governance needs. |
 | REDCap | Strong controlled research data collection | Requires an eligible institutional deployment and is not designed as IRAAC's public/community contact platform. |
 | Custom Next.js + SurveyJS + Supabase | Exact control, Australian region, proven web renderer and one IRAAC contract across modes | The selected stack requires disciplined engineering, tests and governance. This is acceptable because the instrument is stable and the wider private platform is already required. |
+| Convex | Fast TypeScript development and strong realtime app ergonomics | Not selected for the IRAAC system of record because current public Convex cloud regions are US East and EU West, not Australia; it is not SQL/Postgres; and IRAAC needs governed relational reporting, RLS-style database enforcement, migrations, restore drills and Indigenous Data Sovereignty review. Reconsider only through a separate ADR. |
 
 ## Selected components
 
@@ -121,6 +122,8 @@ Forms as the long-term system of record.
 - [Supabase regions](https://supabase.com/docs/guides/platform/regions)
 - [Supabase Row Level Security](https://supabase.com/docs/guides/database/postgres/row-level-security)
 - [Supabase regional function invocation](https://supabase.com/docs/guides/functions/regional-invocation)
+- [Convex regions](https://docs.convex.dev/production/regions)
+- [Convex database overview](https://docs.convex.dev/database/overview)
 - [Vercel regions and Sydney code](https://vercel.com/docs/regions)
 - [Vercel function region configuration](https://vercel.com/docs/functions/configuring-functions/region)
 - [AIATSIS Code of Ethics for Aboriginal and Torres Strait Islander Research](https://aiatsis.gov.au/research/ethical-research)
