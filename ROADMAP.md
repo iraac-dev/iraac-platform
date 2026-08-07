@@ -25,6 +25,7 @@ reporting and operational proof exist before outbound scale.
 | **R6 — email** | Eligible newsletter delivery, unsubscribe, complaints and suppression | Provider sandbox and locked-cohort tests pass; no recipient relies on inferred consent |
 | **R7 — SMS and human phone** | Separately eligible SMS and assisted survey, immediate STOP/DNC capture | Channel eligibility and suppression are proven end to end |
 | **R8 — AI voice pilot** | Disclosed, consented, small AI survey-call pilot with human handoff | Legal/privacy/cultural policy, recording consent, safety and quality gates pass |
+| **R9 — 1800 Mob Link pilot** | Illawarra-first service navigation, referral handoff and longitudinal outcome follow-up | Legal, privacy, cultural-governance, crisis-safety, service-directory and human-operator gates pass before public launch |
 
 ### Standing administrative authority
 
@@ -142,6 +143,7 @@ as the front door of the listening loop.
 | Central contact/consent store | Partial, non-production | Suppression is deny-wins; transactional receipt evidence remains |
 | Email/SMS/voice campaigns | Not built | No provider integration, eligibility engine or suppression ledger |
 | Phone operator console | Not built | No canonical phone-assisted survey workflow |
+| 1800 Mob Link service-navigation line | Proposed strategic program | Not live; must not replace 000, 13YARN or existing crisis/legal services |
 | Admin/auth/audit | Partial, non-production | AAL2 flow exists; membership-scoped authorization remains |
 | Reporting automation | Not built | AI may draft only after governed aggregate pipeline exists |
 
@@ -213,6 +215,124 @@ The loop closes through re-surveying. Issues become recommendations to
 government, recommendations become tracked actions, and later surveys ask
 whether circumstances changed. The visible product promise remains:
 **You share → We listen → We recommend to government → We report back.**
+
+---
+
+## 3A. Strategic expansion: 1800 Mob Link
+
+The next major product direction is **1800 Mob Link**: a toll-free, culturally
+safe service-navigation and accountability program proposed for the number
+**1800 MOB LINK (1800 662 5465)**. The public promise is simple: Aboriginal
+and Torres Strait Islander community members should know one number they can
+call when they need to find the right support near them, and IRAAC should be
+able to follow up later to see whether the service connection actually helped.
+
+1800 Mob Link does not replace emergency, crisis, legal or health services. It
+must route urgent risk to existing emergency and specialist services such as
+000, 13YARN or locally approved crisis pathways. Its distinctive role is to
+connect people to the right service, record what referral was requested, and
+close the loop through consented follow-up and de-identified reporting.
+
+### Program thesis
+
+Aboriginal service access is fragmented. Community members may face housing,
+bail, domestic violence, transport, education, legal, cultural-connection,
+Centrelink, family, youth, health or mental-health needs without knowing which
+local service is suitable, available or accountable. At the same time,
+government and community organisations often lack a shared longitudinal view
+of whether referrals led to practical help.
+
+1800 Mob Link turns that gap into an accountable evidence loop:
+
+1. A community member calls one memorable number.
+2. A culturally safe intake flow identifies location, need, urgency, safe
+   contact preferences and consent.
+3. The system searches an approved service directory for local and statewide
+   options.
+4. A human operator or approved AI-assisted tool connects, transfers, texts or
+   emails the person and, where consented, sends a referral summary to the
+   selected service.
+5. IRAAC follows up at agreed intervals to ask whether the organisation made
+   contact, what support occurred, what barriers remain and whether escalation
+   is needed.
+6. The platform reports de-identified outcome and service-performance evidence
+   back to community, IRAAC governance and government.
+
+### Pilot shape
+
+The first pilot is the **Illawarra region**, not a national launch. It should
+begin with a small service directory covering the most likely local needs:
+housing and crisis accommodation, youth bail support, Aboriginal Legal Service
+pathways, land council contacts, domestic and family violence supports,
+transport, education, health, mental health, cultural connection, Centrelink
+navigation and local community programs.
+
+The pilot must include a staffed callback path. AI can help triage, summarise,
+search the directory, draft referral messages and run approved follow-up
+surveys, but AI must not decide crisis safety, legal eligibility, child-safety
+response, cultural appropriateness or whether an opt-out can be ignored. A
+human escalation path is part of the product, not an optional enhancement.
+
+### Account and service portal direction
+
+After P1 and reporting controls are stable, the IRAAC website can introduce an
+account-based service portal. A community member may sign in with a mobile
+number or other approved low-friction method, see the services they have asked
+for, add current supports, request new supports, review safe contact choices
+and track whether a referral is waiting, accepted, completed or escalated. The
+interface should feel like a simple, Aboriginal-led service access record, not
+a generic CRM.
+
+The service taxonomy starts with location and need:
+
+- housing and homelessness;
+- Centrelink and mainstream government-service navigation;
+- legal advice, bail and court support;
+- domestic, family and sexual violence support;
+- moving out of home, family support and youth support;
+- education, employment and training;
+- transport;
+- health, mental health and social and emotional wellbeing;
+- cultural connection, community events and on-Country activities; and
+- local Aboriginal organisations, programs and drop-ins.
+
+Map-based discovery is a candidate interface for the portal, but Mapbox or any
+other mapping provider is an implementation choice for a later ADR. The first
+requirement is a governed service directory with provenance, coverage, review
+dates, safe-public fields and private referral fields.
+
+### Data and accountability model
+
+1800 Mob Link adds four major data objects to the platform: service directory,
+intake case, referral handoff and longitudinal outcome check. Each object must
+inherit the existing consent, suppression, audit, reporting and publication
+rules. Calls, transcripts, referral summaries and service outcomes may contain
+sensitive personal information and cannot be committed to this repository or
+used in demonstrations with real people.
+
+Accountability reporting focuses on patterns, not public shaming or unsafe
+individual detail. Reports should show which needs are most common, where
+service gaps appear, whether referrals are accepted, whether people report
+getting help, where follow-up fails, and what government should change. Named
+service-performance reporting to government requires legal and governance
+approval, a right-of-reply process where appropriate, and small-cell/privacy
+controls.
+
+### Platform decision: Supabase remains the backbone
+
+Keep Supabase Postgres in Sydney as the system of record for 1800 Mob Link.
+The program needs relational service records, longitudinal case/referral
+history, SQL reporting, RLS, auditability, restore drills, migrations and
+Australian-region control. Convex is attractive for rapid realtime interfaces,
+but its public cloud regions are currently US East and EU West, and it is not
+SQL/Postgres. Do not switch the IRAAC backbone to Convex unless a future ADR
+proves data residency, Indigenous Data Sovereignty, export, audit, reporting,
+RLS-equivalent enforcement, lock-in and cost requirements.
+
+Convex may still be considered for an isolated synthetic prototype or internal
+realtime operator experiment after the data-flow map is approved. If used, it
+must not hold production personal or sensitive community data until the ADR is
+approved.
 
 ---
 
