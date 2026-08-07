@@ -11,7 +11,7 @@
 >
 > **Precedence:** `ROADMAP.md` controls product, governance, architecture and
 > release ordering. This plan decomposes current work and must conform to it.
-> The continuation superprompt is a handoff only and overrides neither.
+> The continuation handoff is informational only and overrides neither.
 
 > **Operational purpose.** This is the shortest safe route from the current
 > static website to an operating IRAAC listening platform. It converts
@@ -45,14 +45,16 @@ IRAAC reaches production through four independently releasable capabilities:
 | **P2 / R6 — Email** | Approved full-audience newsletter and locked-cohort survey email for eligible pilot contacts; bounces, complaints and unsubscribe work end to end | SMS and outbound calls |
 | **P3 — SMS + human phone** | SMS chase and phone-assisted survey for separately eligible contacts; immediate channel/global suppression | AI calls |
 | **P4 — AI phone pilot** | Small, consented AI survey-call pilot with immediate disclosure, deterministic survey flow and human handoff | Expansion beyond approved pilot limits |
-| **R9 — 1800 Mob Link pilot** | Illawarra-first toll-free service navigation, referral handoff, service portal foundation and longitudinal outcome follow-up | National launch, real outreach, named service-performance publication and production call recording |
+| **Phase 7 / R9 — Service Connector + 1800 Mob Link pilot** | Location-based Aboriginal service finder, Clerk login, referral handoff, service portal foundation and longitudinal call-centre outcome follow-up | National launch, real outreach, named service-performance publication and production call recording |
 
 P1 is the fastest useful production goal. P2 is the fastest outreach goal. P3
 and P4 are separate releases because their legal, carrier, safety, speech
 quality and operational dependencies are different.
-R9 is a strategic expansion after the governed listening and reporting
-foundations are stable; it must not jump ahead of consent, safety, human
-operator, service-directory and publication gates.
+Phase 7/R9 is a strategic expansion after the governed listening and reporting
+foundations are stable. It is a separate product from Have Your Say: the app is
+the service-navigation front door, while 1800 Mob Link is the call-centre
+follow-up engine. It must not jump ahead of consent, safety, human operator,
+service-directory and publication gates.
 
 ### Indicative critical-path targets
 
@@ -68,7 +70,7 @@ vendor, legal, ethics or security gate returns material changes.
 | Days 13–15 | Small approved P1 production launch and monitored stabilisation |
 | Days 16–20 | P2 internal test then small opt-in email pilot, if SES/provider approval and exact-message legal approval exist |
 | After stable P2 | P3 SMS/human-phone pilot; P4 AI calling only after its separate proof and approvals |
-| After stable P4/R5 foundations | R9 1800 Mob Link Illawarra design, synthetic prototype and human-reviewed pilot plan |
+| After stable P4/R5 foundations | Phase 7/R9 Service Connector + 1800 Mob Link Illawarra design, synthetic prototype and human-reviewed pilot plan |
 
 If a gate takes longer, engineering continues with synthetic data, but no agent
 may describe the blocked capability as live or bypass the gate to meet a date.
@@ -90,6 +92,10 @@ may describe the blocked capability as live or bypass the gate to meet a date.
   in `ap-southeast-2` (Sydney), deny-by-default RLS, named invitations and
   mandatory AAL2 MFA. Clerk is the tested fallback, not a second V1 identity
   store.
+- **Community Service Connector login:** Clerk is selected for Phase 7/R9
+  community login, starting with verified mobile-number sign-in where approved.
+  Clerk sessions must be checked server-side and mapped into Supabase RLS-aware
+  claims; Clerk is not the data system of record.
 - **Hosting:** public site remains on Vercel; private app and survey use a
   Sydney-configured execution path subject to the approved data-flow map.
 - **Jobs:** Postgres transactional outbox plus Supabase Queues/Cron and a
@@ -240,16 +246,18 @@ are stable so another agent can take over without re-planning.
 | `VOICE-002` | Deterministic call controller with AI intent assistance, interruption-safe stop, fail-closed quarantine and no persistent recording by default | `VOICE-001` | All approved stop phrases interrupt every state; ambiguous/safety events reach a human; consent and AAL/data boundaries pass |
 | `REL-P4` | Small named AI-consented pilot | Community speech/accessibility testing, `VOICE-002` | Immediate IRAAC/AI/purpose disclosure, permission to continue, human alternative, quiet hours, caller ID, return number and stop handling are evidenced |
 
-### R9 — 1800 Mob Link pilot
+### Phase 7 / R9 — Service Connector + 1800 Mob Link pilot
 
 | ID | Work package | Depends on | Done when |
 |---|---|---|---|
-| `MOB-001` | Strategic program foundation, Illawarra pilot scope, Supabase-vs-Convex ADR and no-real-outreach guardrails | R5, safety/legal/governance input | Roadmap, work order, ADR and superprompt are agreed; push to a testing branch is proven |
-| `MOB-002` | Governed Illawarra service-directory design and seed plan | `MOB-001` | Public service facts, private referral fields, source provenance, review cadence and right-of-reply workflow are defined |
-| `MOB-003` | Synthetic intake/referral/follow-up data model | `MOB-002`, consent approval | Intake case, referral handoff, follow-up events, escalation, suppression and report snapshots pass synthetic tests |
-| `MOB-004` | Operator-console synthetic slice | `MOB-003` | Staff can search services, record a synthetic intake, create a synthetic referral and schedule synthetic follow-up with no real contacts |
-| `MOB-005` | Community account/service-portal concept | `MOB-003`, auth/privacy review | Mobile login, service requests, safe contact preferences and referral status are designed for low-friction community use |
-| `REL-MOB-PILOT` | Illawarra human-reviewed pilot readiness | `MOB-004`, `MOB-005` | Crisis scripts, legal disclaimers, operator training, service directory, callback process, reporting rules and human go/no-go are evidenced |
+| `MOB-001` | Strategic product foundation, Illawarra pilot scope, Supabase backbone, Clerk login decision and no-real-outreach guardrails | R5, safety/legal/governance input | Roadmap, work order, ADR and DeepSeek build plan are agreed; push to a testing branch is proven |
+| `MOB-002` | Governed service-directory design using local priority records plus external directory integration | `MOB-001` | Public service facts, private referral fields, source provenance, taxonomy, review cadence and right-of-reply workflow are defined |
+| `MOB-003` | Clerk community-login architecture | `MOB-001`, privacy review | Mobile-number login, account linking, server-side session checks, Supabase RLS mapping, delete/export and test flows are designed |
+| `MOB-004` | Synthetic service-navigation app slice | `MOB-002`, `MOB-003` | A user can search by suburb/postcode, filter services, save a service, request help and view referral status using synthetic data |
+| `MOB-005` | Synthetic referral and call-centre follow-up engine | `MOB-004`, consent approval | Referral -> check-in -> outcome -> referral improvement runs with synthetic records, safe contact rules and human escalation |
+| `MOB-006` | Operator console and service freshness workflow | `MOB-005` | Staff can review listings, update stale records, see follow-up tasks, record outcomes and escalate cases with audit |
+| `MOB-007` | De-identified service accountability reports | `MOB-005`, `MOB-006` | Reports show no-result searches, referral acceptance, follow-up outcomes, stale-data issues and service gaps with privacy controls |
+| `REL-MOB-PILOT` | Illawarra human-reviewed pilot readiness | `MOB-004`-`MOB-007` | Crisis scripts, legal disclaimers, operator training, service directory, callback process, reporting rules and human go/no-go are evidenced |
 
 ## 6. Agent operating contract
 
