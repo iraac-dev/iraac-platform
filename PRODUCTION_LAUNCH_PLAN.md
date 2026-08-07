@@ -250,14 +250,15 @@ are stable so another agent can take over without re-planning.
 
 | ID | Work package | Depends on | Done when |
 |---|---|---|---|
-| `MOB-001` | Strategic product foundation, Illawarra pilot scope, Supabase backbone, Clerk login decision and no-real-outreach guardrails | R5, safety/legal/governance input | Roadmap, work order, ADR and DeepSeek build plan are agreed; push to a testing branch is proven |
-| `MOB-002` | Governed service-directory design using local priority records plus external directory integration | `MOB-001` | Public service facts, private referral fields, source provenance, taxonomy, review cadence and right-of-reply workflow are defined |
-| `MOB-003` | Clerk community-login architecture | `MOB-001`, privacy review | Mobile-number login, account linking, server-side session checks, Supabase RLS mapping, delete/export and test flows are designed |
-| `MOB-004` | Synthetic service-navigation app slice | `MOB-002`, `MOB-003` | A user can search by suburb/postcode, filter services, save a service, request help and view referral status using synthetic data |
-| `MOB-005` | Synthetic referral and call-centre follow-up engine | `MOB-004`, consent approval | Referral -> check-in -> outcome -> referral improvement runs with synthetic records, safe contact rules and human escalation |
-| `MOB-006` | Operator console and service freshness workflow | `MOB-005` | Staff can review listings, update stale records, see follow-up tasks, record outcomes and escalate cases with audit |
-| `MOB-007` | De-identified service accountability reports | `MOB-005`, `MOB-006` | Reports show no-result searches, referral acceptance, follow-up outcomes, stale-data issues and service gaps with privacy controls |
-| `REL-MOB-PILOT` | Illawarra human-reviewed pilot readiness | `MOB-004`-`MOB-007` | Crisis scripts, legal disclaimers, operator training, service directory, callback process, reporting rules and human go/no-go are evidenced |
+| `R9-A` | Groundwork: product boundary, technology ADR, directory research, user journeys and taxonomy | R5, safety/legal/governance input | ADR 0005, journeys, taxonomy and integration decisions are accepted |
+| `R9-B` | Service-directory data model and synthetic Illawarra seed | `R9-A` | HSDS-shaped Supabase tables, pgTAP/RLS tests and synthetic records pass |
+| `R9-C` | Basic postcode/suburb search and service detail UI | `R9-B` | List-first search, crisis routing, safety UX and accessibility checks pass |
+| `R9-D` | Clerk community-login architecture and account home | `R9-A`, privacy review | Phone OTP, Supabase Third-Party Auth, RLS mapping and account-home tests pass with synthetic users |
+| `R9-E` | Referral request flow | `R9-C`, `R9-D`, consent approval | Request help, consent receipts, safe contact, referral status and audit pass |
+| `R9-F` | 1800 Mob Link operator console | `R9-E` | Staff queue, manual phone logging, scripts, escalation and provider-adapter boundaries pass |
+| `R9-G` | Follow-up and outcome measurement | `R9-F` | Referral -> check-in -> outcome -> referral improvement runs with synthetic data |
+| `R9-H` | Service freshness and de-identified reporting | `R9-G` | Stale-listing workflow and locked report snapshots pass privacy controls |
+| `R9-I` | Illawarra release gates | `R9-B`-`R9-H` | Legal, privacy, Aboriginal governance, crisis, youth, accessibility, operator training, incident, rollback and named go/no-go are evidenced |
 
 ## 6. Agent operating contract
 

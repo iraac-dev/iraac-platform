@@ -400,6 +400,29 @@ realtime operator experiment after the data-flow map is approved. If used, it
 must not hold production personal or sensitive community data until the ADR is
 approved.
 
+### Technology stack decisions
+
+[`docs/adr/0005-service-connector-technology-stack.md`](docs/adr/0005-service-connector-technology-stack.md)
+is the authority for Phase 7/R9 implementation choices.
+
+| Element | Phase 7/R9 decision |
+|---|---|
+| Web app | Next.js App Router, React, TypeScript |
+| Hosting | Vercel, with approved Sydney-region server execution for sensitive work |
+| Community login | Clerk phone OTP after privacy approval; Supabase remains the data authority |
+| Staff access | Existing staff/admin path until a separate staff-identity decision is approved |
+| Database | Supabase Postgres in Sydney, with RLS, audit trails and append-only migrations |
+| Service directory | Open Referral HSDS-inspired local tables, starting with synthetic Illawarra seed data |
+| External directories | Outbound links first; Infoxchange/Ask Izzy and Healthdirect/NHSD API or widget review later |
+| Search | Postcode/suburb, category and service-need filters first; precise GPS is optional later |
+| Map/geocoding | Mapbox or MapLibre only after list search and service data quality are proven |
+| Follow-up jobs | Postgres outbox plus Supabase Cron/Queues or an approved Sydney worker |
+| SMS | Sinch MessageMedia and Twilio bake-off; AWS End User Messaging as an AWS-aligned alternative |
+| Email | Amazon SES for receipts, consent confirmations and internal notices |
+| Voice | Manual phone logging first; Amazon Connect Sydney only when queue/supervision needs are real |
+| AI | Advisory summaries, search help and script drafting only; no crisis or eligibility decisions |
+| Reporting | Locked Supabase snapshots and de-identified views |
+
 ### Research patterns to reuse
 
 The product should learn from existing Australian service-navigation patterns:
