@@ -70,6 +70,14 @@ Companion documents:
   records the selected survey stack and rejected alternatives.
 - [`docs/survey/IRAAC_HAVE_YOUR_SAY_V1_DRAFT.md`](docs/survey/IRAAC_HAVE_YOUR_SAY_V1_DRAFT.md)
   is the complete stable V1 questionnaire draft for human approval.
+- [`docs/release/CODEX_CONTINUE_SUPERPROMPT.md`](docs/release/CODEX_CONTINUE_SUPERPROMPT.md)
+  is the current agent-ready build prompt for the single Next.js app
+  consolidation: public site at `/`, MobLink at `/app`, and staff admin at
+  `/admin`.
+- [`docs/release/CLAUDE_CLI_PRODUCTION_HANDOFF.md`](docs/release/CLAUDE_CLI_PRODUCTION_HANDOFF.md)
+  is the practical Claude CLI / DeepSeek build handoff for taking the visual
+  routes through Supabase Auth, PostGIS map search, referrals, admin controls,
+  reporting, audit and production hardening.
 
 Earlier contact-centre research and the Hermes/DeepSeek super-prompt are
 superseded because they encode the retired “Path 1/Path 2” names and different
@@ -120,17 +128,18 @@ feedback is not misled into thinking a service has already been arranged.
 
 ## 2. Where the site is today
 
-The public site is a flat, static, eleven-page HTML build hosted on Vercel with
-zero configuration. Each page (`index.html`, `about.html`, `programs.html`,
-`governance.html`, `insights.html`, `support.html`, `news.html`,
-`contact.html`, `book-a-call.html`, `survey.html`, `offices.html`) is
-self-contained: styles and scripts are inlined at the top of the file, so the
-whole site is a single flat folder of HTML that can be dragged into a Vercel
-project without a build step. `build.py` is the generator — it holds the
-shared CSS, nav, footer, and page templates, and rewrites every HTML file when
-run. Editing HTML directly works for small fixes but any sitewide change needs
-to be made in `build.py` and regenerated, or replicated across every file by
-hand.
+The live public site has now been converted to a single Next.js App Router
+application in `../iraac-website-live`. It is hosted on Vercel at
+`www.iraac-aco.com` and serves the public website at `/`, the visual 1800 Mob
+Link prototype at `/app/`, and the visual staff dashboard prototype at
+`/admin/`. The top-right Login button has been verified routing to `/app/`;
+the footer Admin link has been verified routing to `/admin/`.
+
+This is a routing and visual-prototype milestone, not a production platform
+release. Supabase Auth, staff authorization, RLS, audit, PostGIS service search,
+referrals, account setup, reporting, backups, restore, incident response and
+privacy/cultural-governance release gates remain required before production
+use.
 
 The homepage funnels visitors into four pathway cards: **Book a Call**
 (primary, ochre CTA), **Have Your Say** (the survey), **Drop In**, and **Home
@@ -150,7 +159,7 @@ as the front door of the listening loop.
 
 | Capability | State now | Important boundary |
 |---|---|---|
-| Public website | Live | Static public front door only |
+| Public website | Live Next.js route | Public front door only; production platform data remains gated |
 | Have Your Say | IRAAC-owned holding page | Collection remains closed until the new governed survey is approved |
 | Private-platform survey | Partial, non-production | Active-release interlock exists; transaction/browser gates remain |
 | Contact/home-visit form | Demonstration | Does not submit to a governed system |
@@ -159,15 +168,13 @@ as the front door of the listening loop.
 | Central contact/consent store | Partial, non-production | Suppression is deny-wins; transactional receipt evidence remains |
 | Email/SMS/voice campaigns | Not built | No provider integration, eligibility engine or suppression ledger |
 | Phone operator console | Not built | No canonical phone-assisted survey workflow |
-| Location-based Aboriginal Service Connector | Proposed strategic product | Different from Have Your Say; app front door for service navigation and referral tracking |
-| 1800 Mob Link service-navigation line | Proposed strategic program | Call-centre follow-up engine; not live; must not replace 000, 13YARN or existing crisis/legal services |
+| Location-based Aboriginal Service Connector | Visual prototype at `/app/` | Different from Have Your Say; production requires auth, PostGIS search, governed service directory and referral tracking |
+| 1800 Mob Link service-navigation line | Visual prototype at `/app/` | Call-centre follow-up engine not live; must not replace 000, 13YARN or existing crisis/legal services |
 | Admin/auth/audit | Partial, non-production | AAL2 flow exists; membership-scoped authorization remains |
 | Reporting automation | Not built | AI may draft only after governed aggregate pipeline exists |
 
-The repo is public and has no backend, database schema, authentication, job
-runner, provider integration, automated tests, privacy policy or operational
-runbooks. No bot should mistake an HTML interaction for a production
-capability.
+No bot should mistake a visual route, demo card, seed service or prototype
+interaction for a production capability.
 
 ---
 
@@ -438,6 +445,90 @@ The product should learn from existing Australian service-navigation patterns:
 - Map search is useful only after service data quality, safety classification
   and privacy rules are strong enough; a postcode/suburb search is the safer
   first release.
+
+### Single Next.js application consolidation
+
+The approved implementation direction is now **one Next.js App Router
+application, one Supabase backend and one Vercel deployment** for the public
+website, MobLink and the staff console. This supersedes the split mental model
+where the static public website and the platform/admin app are maintained as
+separate public products. The existing static website and the MobLink prototype
+remain reference material for content, design and data shape, but the target
+system is a single app on the canonical IRAAC domain.
+
+The application exposes three top-level surfaces:
+
+| Route | Surface | Audience | Access rule |
+|---|---|---|---|
+| `/` | IRAAC public website and content pages | Public community, partners and government | Open public access |
+| `/app` | MobLink service finder | Community members with an account | Login-first; no service browsing without an authenticated session |
+| `/admin` | IRAAC staff console | Approved IRAAC staff | Staff-only Supabase Auth gate |
+
+The public website route group includes the homepage plus content pages such as
+`/about`, `/programs`, `/insights`, `/governance`, `/support`, `/news`,
+`/contact`, `/offices`, `/book-a-call`, `/survey` and
+`/enhanced-bail-article`. Public pages keep IRAAC's charcoal, cream, sand and
+ochre visual language; preserve the distinction between **Book a Call**,
+**Drop In**, **Home Visit** and **Have Your Say**; and must not imply that
+service delivery, call-centre operations or survey collection are live before
+their gates pass.
+
+The public header must contain a prominent top-right **Login** button that
+routes directly to `/app`. This is a hard acceptance criterion. In the new
+Next.js app it must be implemented as an ordinary first-party link, not a
+stale external preview URL, JavaScript-only click handler or static-site
+placeholder. A browser verification pass must click the button on desktop and
+mobile, confirm the URL becomes `/app`, and confirm unauthenticated visitors
+see only the MobLink login screen.
+
+The public footer must contain the only public **Admin** link, and it must
+route directly to `/admin`. The link should appear only when the authenticated
+staff route exists. It must never expose a shared PIN, static password screen
+or public dashboard. A browser verification pass must click the footer Admin
+link on desktop and mobile, confirm the URL becomes `/admin`, and confirm
+unauthenticated visitors are routed to the staff sign-in surface while
+non-staff authenticated users receive access denied.
+
+`/app` is the community MobLink surface. It must use Supabase Auth with Google
+OAuth, phone OTP and email login/magic-link paths. The app checks the current
+session before rendering service content. Unauthenticated users see the
+MobLink login screen only. Authenticated users can use Home, Search, Service
+Detail, Connected, Survey, Profile and Setup screens. Home and Search pin
+13YARN and 000 crisis information above ordinary results. A Quick Exit button
+uses `window.location.replace("https://google.com")` and is present throughout
+the app experience.
+
+`/admin` is the staff console. It checks the Supabase session and then checks
+for staff access server-side. The single-app brief uses one equal staff level:
+if the authenticated user has the approved IRAAC staff marker, they can enter
+the staff console; otherwise they see access denied. This product brief does
+not remove the roadmap's stronger governance requirement for named accounts,
+MFA, auditability, offboarding and least-privilege data access. Build the
+surface as one staff console while preserving those protections under the
+hood.
+
+The first functional admin tool is **Create MobLink Account**. A staff member
+enters a mobile number; a protected server route creates or locates the
+Supabase Auth user, writes a `user_profiles` record with
+`onboarding_source = 'admin_created'`, creates a one-time setup token with a
+24-hour expiry, and returns a setup link for testing. Real SMS transmission is
+deferred until the approved SMS provider, consent wording and operational
+policy are ready.
+
+The data model for this consolidation includes service directory entries,
+community profiles, connected services, follow-up choices, outcome fields and
+one-time setup tokens. The service directory begins with synthetic Illawarra
+and national seed data, including crisis entries. Do not import real people,
+private staff details, real sensitive case data or live call transcripts while
+building or testing this consolidation.
+
+Deployment should first prove the single app on a Vercel preview or temporary
+project URL. Only after route, auth, crisis-safety, admin-gate and content
+verification pass should `www.iraac-aco.com` be assigned to the new app and the
+old static deployment archived or redirected. If the old static site remains
+live during the transition, its generated header/footer links must route to
+the tested Next.js `/app` and `/admin` URLs so there is no dead Login or Admin
+path.
 
 ---
 
